@@ -79,7 +79,7 @@ export const getEventById = async (req: Request, res: Response, next: NextFuncti
       where: { competenciaId: id }
     });
 
-    const totalPool = pools.reduce((sum, p) => sum + p.totalApostado, 0);
+    const totalPool = pools.reduce((sum: number, p: any) => sum + p.totalApostado, 0);
 
     const event = {
       id: competencia.id,
@@ -88,7 +88,7 @@ export const getEventById = async (req: Request, res: Response, next: NextFuncti
       totalPool, 
       horses: competencia.participaciones.map((p: any) => {
         const cab = p.caballo;
-        const horsePool = pools.find(pl => pl.caballoId === cab.id)?.totalApostado || 0;
+        const horsePool = pools.find((pl: any) => pl.caballoId === cab.id)?.totalApostado || 0;
         const poolPercentage = totalPool > 0 ? (horsePool / totalPool) * 100 : 0;
         
         return {

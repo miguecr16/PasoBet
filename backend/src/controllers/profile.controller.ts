@@ -31,7 +31,7 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
     let totalWagered = 0;
     let totalWon = 0; 
 
-    apuestas.forEach(group => {
+    apuestas.forEach((group: any) => {
       totalBets += group._count.id;
       totalWagered += Number(group._sum.monto || 0);
       if (group.estado === 'ganada') { 

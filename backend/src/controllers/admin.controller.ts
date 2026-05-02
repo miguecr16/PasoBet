@@ -103,7 +103,7 @@ export const settleEvent = async (req: Request, res: Response, next: NextFunctio
     });
     if (!participacion) return next(new AppError('El caballo ganador no pertenece a la competencia', 400));
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // Settle winning bets
       const winningBets = await tx.apuesta.findMany({
         where: { competenciaId: eventId, estado: 'pendiente', caballoId: winnerHorseId }

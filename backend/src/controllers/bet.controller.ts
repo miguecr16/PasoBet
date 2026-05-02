@@ -34,7 +34,7 @@ export const placeBet = async (req: Request, res: Response, next: NextFunction) 
     if (!participacion) return next(new AppError('El caballo no participa en esta competencia', 400));
 
     // Transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const usuario = await tx.usuario.findUnique({ where: { id: userId } });
       if (!usuario || Number(usuario.saldo) < amount) {
         throw new AppError('Saldo insuficiente', 400);
@@ -99,7 +99,7 @@ async function calculateOddsAsync(competenciaId: string) {
       where: { competenciaId }
     });
     
-    const totalPool = allPools.reduce((sum, p) => sum + p.totalApostado, 0);
+    const totalPool = allPools.reduce((sum: number, p: any) => sum + p.totalApostado, 0);
     const houseEdge = 0.15; 
     const netPool = totalPool * (1 - houseEdge);
 
@@ -108,9 +108,9 @@ async function calculateOddsAsync(competenciaId: string) {
       include: { caballo: true }
     });
 
-    const updates = participaciones.map(p => {
+    const updates = participaciones.map((p: any) => {
       const cab = p.caballo;
-      const horsePool = allPools.find(pl => pl.caballoId === cab.id)?.totalApostado || 0;
+      const horsePool = allPools.find((pl: any) => pl.caballoId === cab.id)?.totalApostado || 0;
       let newOdds = cab.cuotaBase;
       
       if (horsePool > 0) {
@@ -160,7 +160,7 @@ export const getMyBets = async (req: Request, res: Response, next: NextFunction)
 
     const total = await prisma.apuesta.count({ where });
 
-    const bets = apuestas.map(ap => ({
+    const bets = apuestas.map((ap: any) => ({
       id: ap.id,
       amount: ap.monto,
       odds: ap.cuotaTomada,
