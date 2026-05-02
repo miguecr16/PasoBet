@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  pasobet:
+    build: .
+    ports:
+      - "3000:3000"  # Backend API
+      - "5000:5000"  # Frontend static files
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DATABASE_URL}
+      - PORT=3000
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: PostgreSQL database (if not using Supabase)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: pasobet
+  #     POSTGRES_USER: pasobet
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
