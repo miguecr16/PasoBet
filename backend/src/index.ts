@@ -43,8 +43,13 @@ app.use((req, res, next) => {
 // Global Error Handler
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
+// For Vercel serverless functions
+export default app;
 
-httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// For local development
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  httpServer.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
