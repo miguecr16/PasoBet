@@ -10,7 +10,7 @@ function parseCsvLine(line: string) {
 }
 
 async function main() {
-  console.log('🚀 Iniciando importación inteligente (Soporta formato antiguo y profesional)...');
+  console.log('🚀 Iniciando importación jerárquica profunda...');
 
   const csvPath = path.join(process.cwd(), '..', 'pasobet_dataset.csv');
   if (!fs.existsSync(csvPath)) {
@@ -25,18 +25,24 @@ async function main() {
   const header = parseCsvLine(lines[0]).map((v) => v.toLowerCase());
   const rows = lines.slice(1);
 
-  console.log('📊 Iniciando carga de datos...');
-  // await prisma.apuesta.deleteMany();
-  // await prisma.poolApuestas.deleteMany();
-  // await prisma.participacion.deleteMany();
-  // await prisma.competencia.deleteMany();
-  // await prisma.feria.deleteMany();
-  // await prisma.caballo.deleteMany();
+  console.log('🗑️ Limpiando datos operativos...');
+  await prisma.apuesta.deleteMany();
+  await prisma.poolApuestas.deleteMany();
+  await prisma.participacion.deleteMany();
+  await prisma.competencia.deleteMany();
+  await prisma.feria.deleteMany();
+  await prisma.caballo.deleteMany();
 
-  const masterCategories = await prisma.competitionCategory.findMany();
+  // Precargar jerarquías para eficiencia
+  const dbModalities = await prisma.competitionModality.findMany();
+  const dbSexes = await prisma.competitionSex.findMany();
+  const dbAgeRanges = await prisma.competitionAgeRange.findMany();
+  const dbCategories = await prisma.competitionCategory.findMany();
+
   const feriasMap = new Map<string, string>();
   const competicionesMap = new Map<string, string>();
 
+  console.log('📊 Procesando registros...');
   for (const row of rows) {
     const values = parseCsvLine(row);
     if (values.length < 5) continue;
@@ -44,30 +50,43 @@ async function main() {
     const record: Record<string, string> = {};
     header.forEach((col, i) => { record[col] = values[i] || ''; });
 
-    // --- Lógica de Extracción de Modalidad ---
-    let mod = record['modalidad']?.toUpperCase() || '';
-    const catName = record['categoria_nombre'] || record['categoria_completa'] || '';
+    // 1. Identificar Modalidad
+    const catName = (record['categoria_nombre'] || record['categoria_completa'] || '').toLowerCase();
+    let modObj = dbModalities.find(m => catName.includes(m.slug) || catName.includes(m.nombre.toLowerCase()));
     
-    if (!mod) {
-      if (catName.includes('(P4)') || catName.toLowerCase().includes('fino')) mod = 'PASO_FINO';
-      else if (catName.includes('(P3)') || catName.toLowerCase().includes('trocha pura')) mod = 'TROCHA';
-      else if (catName.includes('(P2)') || catName.toLowerCase().includes('trocha y galope')) mod = 'TROCHA_GALOPE';
-      else if (catName.includes('(P1)') || catName.toLowerCase().includes('trote y galope')) mod = 'TROTE_GALOPE';
-      else mod = 'TROCHA'; // Fallback
+    // Fallback manual para formatos antiguos P1-P4
+    if (!modObj) {
+      if (catName.includes('(p4)') || catName.includes('fino')) modObj = dbModalities.find(m => m.slug === 'paso-fino');
+      else if (catName.includes('(p3)') || catName.includes('trocha pura')) modObj = dbModalities.find(m => m.slug === 'trocha');
+      else if (catName.includes('(p2)') || catName.includes('trocha y galope')) modObj = dbModalities.find(m => m.slug === 'trocha-y-galope');
+      else if (catName.includes('(p1)') || catName.includes('trote y galope')) modObj = dbModalities.find(m => m.slug === 'trote-y-galope');
     }
+    if (!modObj) modObj = dbModalities[0]; // Fallback final
 
-    const sexo = record['sexo']?.toUpperCase().includes('HEMBRA') ? 'HEMBRA' : 'MACHO';
-    const edadMin = parseInt(record['edad_min']) || 36;
-    const feriaNombre = record['feria_nombre'] || record['feria'] || 'Feria Desconocida';
-    const caballoNombre = record['caballo_nombre'] || record['caballo'] || 'Sin Nombre';
+    // 2. Identificar Sexo
+    const sexoRaw = (record['sexo'] || '').toLowerCase();
+    const sexoObj = dbSexes.find(s => sexoRaw.includes('hembra') || sexoRaw.includes('yegua')) 
+                    ? dbSexes.find(s => s.nombre.toLowerCase().includes('hembra'))
+                    : dbSexes.find(s => s.nombre.toLowerCase().includes('macho'));
+    
+    if (!sexoObj) continue;
 
-    // Buscar Categoría Maestra
-    const category = masterCategories.find(c => c.modalidad === mod && c.sexo === sexo && c.edadMin === edadMin) 
-                     || masterCategories.find(c => c.modalidad === mod); // Fallback a la primera de la modalidad
+    // 3. Identificar Rango de Edad
+    const edadMeses = parseInt(record['edad_meses'] || record['edad_min']) || 36;
+    const ageObj = dbAgeRanges.find(a => edadMeses >= a.edadMin && (a.edadMax === null || edadMeses < a.edadMax))
+                   || dbAgeRanges[0];
+
+    // 4. Encontrar Categoría de Unión
+    const category = dbCategories.find(c => 
+      c.modalidadId === modObj!.id && 
+      c.sexoId === sexoObj.id && 
+      c.rangoEdadId === ageObj.id
+    );
 
     if (!category) continue;
 
-    // Feria
+    // 5. Feria
+    const feriaNombre = record['feria_nombre'] || record['feria'] || 'Feria Fedequinas';
     let feriaId = feriasMap.get(feriaNombre);
     if (!feriaId) {
       const feria = await prisma.feria.create({
@@ -82,7 +101,7 @@ async function main() {
       feriasMap.set(feriaNombre, feriaId);
     }
 
-    // Competencia
+    // 6. Competencia
     const compKey = `${feriaId}_${category.id}`;
     let compId = competicionesMap.get(compKey);
     if (!compId) {
@@ -93,13 +112,13 @@ async function main() {
       competicionesMap.set(compKey, compId);
     }
 
-    // Caballo y Participación
+    // 7. Caballo y Participación
     const caballo = await prisma.caballo.create({
       data: {
-        nombre: caballoNombre,
+        nombre: record['caballo_nombre'] || record['caballo'] || 'Sin Nombre',
         criadero: record['caballo_criadero'] || record['criadero'],
-        sexo,
-        edadMeses: edadMin,
+        sexo: sexoObj.nombre,
+        edadMeses: edadMeses,
         cuotaBase: parseFloat(record['cuota_base'] || record['cuota']) || 2.0,
         cuotaActual: parseFloat(record['cuota_base'] || record['cuota']) || 2.0,
       }
@@ -109,10 +128,8 @@ async function main() {
     await prisma.poolApuestas.create({ data: { competenciaId: compId, caballoId: caballo.id, totalApostado: 0 } });
   }
 
-  console.log('✅ Importación finalizada con éxito. Sistema profesional listo.');
+  console.log('✅ Importación jerárquica finalizada con éxito.');
 }
-
-
 
 main()
   .catch((error) => {

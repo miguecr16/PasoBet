@@ -34,18 +34,50 @@ model Feria {
   @@map("ferias")
 }
 
-model CompetitionCategory {
-  id           String        @id @default(uuid()) @db.Uuid
-  modalidad    String
-  sexo         String
-  edadMin      Int           @map("edad_min")
-  edadMax      Int?          @map("edad_max")
-  nombre       String        @unique
-  slug         String        @unique
-  activa       Boolean       @default(true)
-  creadoEn     DateTime      @default(now()) @map("created_at")
-  competencias Competencia[]
+model CompetitionModality {
+  id         String                @id @default(uuid()) @db.Uuid
+  nombre     String                @unique
+  slug       String                @unique
+  activa     Boolean               @default(true)
+  creadoEn   DateTime              @default(now()) @map("created_at")
+  categorias CompetitionCategory[]
 
+  @@map("competition_modalities")
+}
+
+model CompetitionSex {
+  id         String                @id @default(uuid()) @db.Uuid
+  nombre     String                @unique
+  categorias CompetitionCategory[]
+
+  @@map("competition_sexes")
+}
+
+model CompetitionAgeRange {
+  id         String                @id @default(uuid()) @db.Uuid
+  nombre     String                @unique
+  edadMin    Int                   @map("edad_min")
+  edadMax    Int?                  @map("edad_max")
+  categorias CompetitionCategory[]
+
+  @@map("competition_age_ranges")
+}
+
+model CompetitionCategory {
+  id            String              @id @default(uuid()) @db.Uuid
+  modalidadId   String              @map("modalidad_id") @db.Uuid
+  sexoId        String              @map("sexo_id") @db.Uuid
+  rangoEdadId   String              @map("rango_edad_id") @db.Uuid
+  nombre        String              @unique
+  slug          String              @unique
+  activa        Boolean             @default(true)
+  creadoEn      DateTime            @default(now()) @map("created_at")
+  modalidad     CompetitionModality @relation(fields: [modalidadId], references: [id])
+  sexo          CompetitionSex      @relation(fields: [sexoId], references: [id])
+  rangoEdad     CompetitionAgeRange @relation(fields: [rangoEdadId], references: [id])
+  competencias  Competencia[]
+
+  @@unique([modalidadId, sexoId, rangoEdadId])
   @@map("competition_categories")
 }
 

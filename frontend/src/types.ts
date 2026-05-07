@@ -12,7 +12,6 @@ export interface ApiResponse<T = any> {
   };
 }
 
-// El backend devuelve firstName/lastName mapeados desde el campo `nombre`
 export interface User {
   id: string;
   email: string;
@@ -30,7 +29,6 @@ export interface Wallet {
   userId?: string;
 }
 
-// Caballo (mapeado desde el backend como HorseOnEvent para compatibilidad)
 export interface Horse {
   id: string;
   name: string;
@@ -52,16 +50,30 @@ export interface HorseOnEvent {
 
 export interface Category {
   id: string;
-  name: string;
-  modalidad: string;
-  sexo: string;
-  edadMin: number;
-  edadMax?: number | null;
+  nombre: string;
   slug: string;
   status: string;
-  horseCount?: number;
-  betCount?: number;
-  horses: HorseOnEvent[];
+  ageRange: {
+    id: string;
+    nombre: string;
+    min: number;
+    max: number | null;
+  };
+  horseCount: number;
+  betCount: number;
+}
+
+export interface SexNode {
+  id: string;
+  nombre: string;
+  competencias: Category[];
+}
+
+export interface ModalityNode {
+  id: string;
+  nombre: string;
+  slug: string;
+  sexos: SexNode[];
 }
 
 export interface Feria {
@@ -71,7 +83,7 @@ export interface Feria {
   startDate: string;
   endDate: string;
   status: string;
-  categories: Category[];
+  modalidades: ModalityNode[];
 }
 
 export interface Event {
@@ -79,20 +91,13 @@ export interface Event {
   name: string;
   modalidad: string;
   sexo: string;
-  edadMin: number;
-  edadMax?: number | null;
+  edadRange: string;
   slug: string;
   status: string;
   createdAt?: string;
   totalPool?: number;
-  horseCount?: number;
-  betCount?: number;
   horses: HorseOnEvent[];
-  _count?: {
-    bets: number;
-  };
 }
-
 
 export interface OddsUpdatePayload {
   eventId: string;
@@ -111,4 +116,3 @@ export interface Bet {
   horse: { name: string };
   event: { name: string };
 }
-

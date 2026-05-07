@@ -1,12 +1,14 @@
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 async function check() {
-  const [cats, ferias, horses, bets] = await Promise.all([
+  const [mods, sexes, ages, cats, ferias, horses] = await Promise.all([
+    prisma.competitionModality.count(),
+    prisma.competitionSex.count(),
+    prisma.competitionAgeRange.count(),
     prisma.competitionCategory.count(),
     prisma.feria.count(),
     prisma.caballo.count(),
-    prisma.apuesta.count(),
   ]);
-  console.log({ cats, ferias, horses, bets });
+  console.log({ mods, sexes, ages, cats, ferias, horses });
 }
 check().finally(() => prisma.$disconnect());

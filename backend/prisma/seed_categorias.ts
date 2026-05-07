@@ -3,55 +3,94 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const MODALIDADES = [
-  { id: 'PASO_FINO', nombre: 'Paso Fino' },
-  { id: 'TROCHA', nombre: 'Trocha' },
-  { id: 'TROCHA_GALOPE', nombre: 'Trocha y Galope' },
-  { id: 'TROTE_GALOPE', nombre: 'Trote y Galope' },
-  { id: 'ASNALES_MULARES', nombre: 'Asnales y Mulares' }
+  { nombre: 'Paso Fino', slug: 'paso-fino' },
+  { nombre: 'Trocha', slug: 'trocha' },
+  { nombre: 'Trocha y Galope', slug: 'trocha-y-galope' },
+  { nombre: 'Trote y Galope', slug: 'trote-y-galope' },
+  { nombre: 'Asnales y Mulares', slug: 'asnales-y-mulares' }
 ];
 
 const SEXOS = [
-  { id: 'MACHO', nombre: 'Machos' },
-  { id: 'HEMBRA', nombre: 'Hembras' }
+  { nombre: 'Machos' },
+  { nombre: 'Hembras' }
 ];
 
 const EDADES = [
-  { min: 36, max: 48, label: '36-48' },
-  { min: 48, max: 60, label: '48-60' },
-  { min: 60, max: 78, label: '60-78' },
-  { min: 78, max: 100, label: '78-100' },
-  { min: 100, max: null, label: 'Mayor 100' }
+  { nombre: '36-48 meses', min: 36, max: 48 },
+  { nombre: '48-60 meses', min: 48, max: 60 },
+  { nombre: '60-78 meses', min: 60, max: 78 },
+  { nombre: '78-100 meses', min: 78, max: 100 },
+  { nombre: 'Mayor 100 meses', min: 100, max: null }
 ];
 
 async function main() {
-  console.log('🚀 Iniciando seed de categorías maestras...');
+  console.log('🚀 Iniciando seed de categorías jerárquicas...');
 
-  // Limpiar categorías existentes (por seguridad ya que hicimos reset, pero por si acaso)
-  await prisma.competitionCategory.deleteMany();
-
+  // 1. Crear Modalidades
+  console.log('Creating Modalities...');
   for (const mod of MODALIDADES) {
-    for (const sexo of SEXOS) {
-      for (const edad of EDADES) {
-        const nombre = `${mod.nombre} ${sexo.nombre} ${edad.label}`;
-        const slug = `${mod.id.toLowerCase()}-${sexo.id.toLowerCase()}-${edad.label.toLowerCase().replace(' ', '-')}`;
+    await prisma.competitionModality.upsert({
+      where: { nombre: mod.nombre },
+      update: {},
+      create: { nombre: mod.nombre, slug: mod.slug }
+    });
+  }
 
-        await prisma.competitionCategory.create({
-          data: {
-            modalidad: mod.id,
-            sexo: sexo.id,
-            edadMin: edad.min,
-            edadMax: edad.max,
-            nombre,
+  // 2. Crear Sexos
+  console.log('Creating Sexes...');
+  for (const sexo of SEXOS) {
+    await prisma.competitionSex.upsert({
+      where: { nombre: sexo.nombre },
+      update: {},
+      create: { nombre: sexo.nombre }
+    });
+  }
+
+  // 3. Crear Rangos de Edad
+  console.log('Creating Age Ranges...');
+  for (const edad of EDADES) {
+    await prisma.competitionAgeRange.upsert({
+      where: { nombre: edad.nombre },
+      update: {},
+      create: { 
+        nombre: edad.nombre, 
+        edadMin: edad.min, 
+        edadMax: edad.max 
+      }
+    });
+  }
+
+  // Obtener todos para cruzar IDs
+  const dbModalities = await prisma.competitionModality.findMany();
+  const dbSexes = await prisma.competitionSex.findMany();
+  const dbAges = await prisma.competitionAgeRange.findMany();
+
+  // 4. Crear Categorías de Unión (Junction Table)
+  console.log('Building Junction Categories...');
+  for (const mod of dbModalities) {
+    for (const sexo of dbSexes) {
+      for (const age of dbAges) {
+        const nombreCompleto = `${mod.nombre} - ${sexo.nombre} - ${age.nombre}`;
+        const slug = `${mod.slug}-${sexo.nombre.toLowerCase()}-${age.nombre.toLowerCase().replace(/ /g, '-')}`;
+
+        await prisma.competitionCategory.upsert({
+          where: { nombre: nombreCompleto },
+          update: {},
+          create: {
+            nombre: nombreCompleto,
             slug,
+            modalidadId: mod.id,
+            sexoId: sexo.id,
+            rangoEdadId: age.id,
             activa: true
           }
         });
-        console.log(`✅ Creada: ${nombre}`);
+        console.log(`✅ ${nombreCompleto}`);
       }
     }
   }
 
-  console.log('✨ Seed de categorías completado con éxito.');
+  console.log('✨ Jerarquía profesional establecida correctamente.');
 }
 
 main()

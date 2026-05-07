@@ -368,7 +368,7 @@ export const EventDetail: React.FC = () => {
               {event.name}
             </h1>
             <p style={{ margin: '0.65rem 0 0', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-              {event.modalidad} • {event.sexo} • {event.edadMin}-{event.edadMax ?? '+'} meses
+              {event.modalidad} • {event.sexo} • {event.edadRange}
             </p>
           </div>
           <Badge status={event.status} />
