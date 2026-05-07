@@ -3,21 +3,12 @@ import api from '../services/api';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
-import type { Category, Feria, Horse, ModalityNode, SexNode } from '../types';
+import type { Category, Feria, Horse } from '../types';
 import { 
-  Plus, 
-  Award, 
+  Award,
   Building2, 
-  Sparkles, 
-  ArrowUpRight, 
-  Zap, 
-  Repeat, 
-  MoveRight, 
-  MoveUp, 
-  Target,
-  Users,
   Settings2,
-  ChevronRight
+  Users
 } from 'lucide-react';
 
 interface AdminFeria extends Feria {
@@ -352,7 +343,7 @@ export const Admin: React.FC = () => {
                 <label className="text-[10px] font-black uppercase text-gray-400 ml-4">Ejemplar Registrado</label>
                 <select className="w-full bg-gray-50 border-none rounded-2xl p-5 font-black text-brand-green" value={selectedHorseId} onChange={e => setSelectedHorseId(e.target.value)}>
                   <option value="">Seleccionar Caballo</option>
-                  {horses.map(h => <option key={h.id} value={h.id}>{h.nombre} ({h.sexo} • {h.edadMeses}m)</option>)}
+                  {horses.map(h => <option key={h.id} value={h.id}>{h.nombre || (h as any).name} ({h.sexo} • {h.edadMeses}m)</option>)}
                 </select>
               </div>
 

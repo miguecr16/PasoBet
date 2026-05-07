@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Card } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
 import type { ApiResponse, Feria } from '../types';
 import {
@@ -12,15 +11,13 @@ import {
   MoveUp,
   Target,
   ChevronRight,
-  Radio,
   Building2,
   MapPin,
   Calendar,
   Layers,
   Users,
   Coins,
-  ChevronDown,
-  ChevronUp
+  ChevronDown
 } from 'lucide-react';
 
 const MODALIDADES_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
@@ -36,7 +33,6 @@ export const Home: React.FC = () => {
   const { user } = useAuth();
   const [ferias, setFerias] = useState<Feria[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [expandedMods, setExpandedMods] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -56,7 +52,7 @@ export const Home: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setError('Error al conectar con el servidor');
+      // Error handled by UI
     } finally {
       setLoading(false);
     }

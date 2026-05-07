@@ -31,8 +31,14 @@ export interface Wallet {
 
 export interface Horse {
   id: string;
-  name: string;
-  breed?: string | null;
+  nombre: string;
+  name?: string; // Para compatibilidad legacy si fuera necesario
+  criadero?: string | null;
+  breed?: string | null; // Para compatibilidad legacy
+  sexo?: string;
+  edadMeses?: number;
+  cuotaBase?: number;
+  cuotaActual?: number;
   stats?: {
     carrerasJugadas: number;
     victorias: number;
@@ -53,6 +59,12 @@ export interface Category {
   nombre: string;
   slug: string;
   status: string;
+  modalidadId?: string;
+  sexoId?: string;
+  rangoEdadId?: string;
+  modalidad?: { id: string; nombre: string; slug: string };
+  sexo?: { id: string; nombre: string };
+  rangoEdad?: { id: string; nombre: string; edadMin: number; edadMax: number | null };
   ageRange: {
     id: string;
     nombre: string;
