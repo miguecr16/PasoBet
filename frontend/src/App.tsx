@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './pages/Login';
 import { Home } from './pages/Home';
@@ -7,79 +8,165 @@ import { EventDetail } from './pages/EventDetail';
 import { ProfileStats } from './pages/ProfileStats';
 import { Admin } from './pages/Admin';
 import { Spinner } from './components/ui/Spinner';
-import api from './services/api';
-
-import {
-  Coins,
-  LogOut,
-  User,
-  Shield,
-} from 'lucide-react';
 import { Logo } from './components/Logo';
+import api from './services/api';
+import {
+  Coins, LogOut, User, Shield, ChevronDown, Plus,
+} from 'lucide-react';
 
-// ─── Icon size tokens ──────────────────────────────────────────────────────────
-const ICON_SM = 16;
+// ─── Loading screen ───────────────────────────────────────────────────────────
+const LoadingScreen: React.FC = () => (
+  <div style={{
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    minHeight: '100vh', flexDirection: 'column', gap: '1rem',
+    background: 'var(--bg-page)',
+  }}>
+    <Spinner size={32} color="var(--brand-gold)" />
+    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+      Cargando PasoBet...
+    </p>
+  </div>
+);
 
-// ─── Protected Route Guard ────────────────────────────────────────────────────
+// ─── Protected Route ──────────────────────────────────────────────────────────
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        minHeight: '100vh', gap: '0.75rem', color: 'var(--text-secondary)',
-        fontSize: 'var(--fs-lg)',
-      }}>
-        <Spinner size={28} color="var(--brand-green)" />
-        Cargando PasoBet...
-      </div>
-    );
-  }
-
+  if (isLoading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
 
-// ─── Navbar ───────────────────────────────────────────────────────────────────
-const Navbar = () => {
-  const { user, wallet, signOut, refreshWallet } = useAuth();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [depositLoading, setDepositLoading] = useState(false);
-  const [depositSuccess, setDepositSuccess] = useState('');
+// ─── Deposit Menu ─────────────────────────────────────────────────────────────
+const DepositMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { refreshWallet } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
 
   const handleDeposit = async (amount: number) => {
-    setDepositLoading(true);
-    setDepositSuccess('');
-
+    setLoading(true);
     try {
       await api.post('/wallet/deposit', { amount });
       await refreshWallet();
-      setDepositSuccess(`Saldo recargado: +$${amount.toLocaleString('es-CO')} COP`);
-      setTimeout(() => setDepositSuccess(''), 3500);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al recargar saldo';
-      setDepositSuccess(message);
+      setSuccess(`+$${amount.toLocaleString('es-CO')} COP añadidos`);
+      setTimeout(() => { setSuccess(''); onClose(); }, 2000);
+    } catch {
+      setSuccess('Error al recargar');
     } finally {
-      setDepositLoading(false);
+      setLoading(false);
     }
   };
 
   return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: -8, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.97 }}
+      transition={{ duration: 0.18 }}
+      style={{
+        position: 'absolute', top: 'calc(100% + 10px)', right: 0,
+        width: 260, zIndex: 300,
+        background: '#0D1A11',
+        border: '1px solid rgba(212,175,55,0.2)',
+        borderRadius: 'var(--radius-xl)',
+        boxShadow: '0 24px 60px rgba(0,0,0,0.7)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header */}
+      <div style={{ padding: '1rem 1.1rem 0.6rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <p style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-brand)' }}>
+          Recargar Saldo
+        </p>
+        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 2 }}>
+          Selecciona el monto a añadir
+        </p>
+      </div>
+
+      {/* Amounts */}
+      <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        {[10000, 50000, 100000, 500000].map(amount => (
+          <button
+            key={amount}
+            onClick={() => handleDeposit(amount)}
+            disabled={loading}
+            style={{
+              width: '100%', padding: '0.65rem',
+              background: 'rgba(212,175,55,0.08)',
+              border: '1px solid rgba(212,175,55,0.15)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--brand-gold)',
+              fontWeight: 800, fontSize: '0.82rem',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease',
+              fontFamily: 'var(--font-brand)',
+              opacity: loading ? 0.5 : 1,
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(212,175,55,0.18)';
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,175,55,0.35)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(212,175,55,0.08)';
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,175,55,0.15)';
+            }}
+          >
+            <Plus size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+            ${amount.toLocaleString('es-CO')} COP
+          </button>
+        ))}
+      </div>
+
+      {success && (
+        <div style={{
+          margin: '0 0.75rem 0.75rem',
+          padding: '0.6rem',
+          background: 'rgba(34,197,94,0.1)',
+          border: '1px solid rgba(34,197,94,0.25)',
+          borderRadius: 'var(--radius-md)',
+          color: '#4ADE80',
+          fontSize: '0.75rem', fontWeight: 700, textAlign: 'center',
+        }}>
+          {success}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+// ─── Navbar ───────────────────────────────────────────────────────────────────
+const Navbar: React.FC = () => {
+  const { user, wallet, signOut } = useAuth();
+  const [depositOpen, setDepositOpen] = useState(false);
+
+  return (
     <nav style={{
-      background: 'var(--brand-green)',
-      borderBottom: '2px solid var(--brand-gold)',
-      padding: '0 var(--space-5)',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100,
-      boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+      position: 'sticky', top: 0, zIndex: 100,
+      background: 'rgba(8, 15, 11, 0.92)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      borderBottom: '1px solid rgba(212,175,55,0.12)',
+      boxShadow: '0 4px 30px rgba(0,0,0,0.4)',
     }}>
+      {/* Gold top line */}
+      <div style={{
+        height: 2, width: '100%',
+        background: 'linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.6) 30%, rgba(240,208,96,0.8) 50%, rgba(212,175,55,0.6) 70%, transparent 100%)',
+      }} />
+
       <div style={{
         maxWidth: 1200, margin: '0 auto',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        height: 60,
-        position: 'relative',
+        height: 58, padding: '0 1.25rem',
       }}>
         {/* Logo */}
         <Link to="/" style={{ textDecoration: 'none', flexShrink: 0 }}>
@@ -88,144 +175,124 @@ const Navbar = () => {
 
         {/* Right section */}
         {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
 
             {/* Balance pill */}
             <div
-              onClick={() => setMenuOpen((current) => !current)}
+              onClick={() => setDepositOpen(v => !v)}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                background: 'var(--brand-gold)',
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                padding: '0.35rem 0.9rem 0.35rem 0.6rem',
+                background: 'rgba(212,175,55,0.12)',
+                border: '1px solid rgba(212,175,55,0.3)',
                 borderRadius: 'var(--radius-pill)',
-                padding: '0.35rem 1rem',
-                boxShadow: '0 2px 8px rgba(212,175,55,0.4)',
                 cursor: 'pointer',
+                transition: 'all 0.2s ease',
                 userSelect: 'none',
+                position: 'relative',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(212,175,55,0.2)';
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,175,55,0.5)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(212,175,55,0.12)';
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,175,55,0.3)';
               }}
             >
-              <Coins size={14} color="var(--brand-green)" strokeWidth={2.5} />
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%',
+                background: 'rgba(212,175,55,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Coins size={12} color="var(--brand-gold)" strokeWidth={2.5} />
+              </div>
               <span style={{
-                color: 'var(--brand-green)',
-                fontWeight: '800',
-                fontSize: 'var(--fs-sm)',
-                fontFamily: "'Outfit', var(--font-sans)",
+                fontFamily: 'var(--font-brand)',
+                fontSize: '0.85rem', fontWeight: 800,
+                color: 'var(--brand-gold)',
                 letterSpacing: '0.01em',
               }}>
                 ${wallet ? wallet.balance.toLocaleString('es-CO') : '0'}
               </span>
+              <ChevronDown
+                size={13}
+                color="rgba(212,175,55,0.6)"
+                style={{ transition: 'transform 0.2s', transform: depositOpen ? 'rotate(180deg)' : 'rotate(0)' }}
+              />
             </div>
 
-            {menuOpen && (
-              <div style={{
-                position: 'absolute',
-                right: 0,
-                top: 'calc(100% + 0.75rem)',
-                width: 260,
-                background: 'white',
-                borderRadius: 'var(--radius-lg)',
-                boxShadow: '0 24px 56px rgba(0,0,0,0.16)',
-                padding: '1rem',
-                zIndex: 200,
-              }}>
-                <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Añadir saldo
-                </p>
-                <p style={{ margin: '0.35rem 0 0.85rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                  Selecciona un monto para recargar tu cuenta.
-                </p>
-                <div style={{ display: 'grid', gap: '0.65rem' }}>
-                  {[10000, 50000, 100000].map((amount) => (
-                    <button
-                      key={amount}
-                      onClick={() => handleDeposit(amount)}
-                      disabled={depositLoading}
-                      style={{
-                        width: '100%',
-                        borderRadius: 'var(--radius-sm)',
-                        border: '1px solid rgba(17,24,39,0.08)',
-                        background: depositLoading ? 'rgba(212,175,55,0.16)' : 'var(--brand-green)',
-                        color: 'white',
-                        fontSize: '0.9rem',
-                        fontWeight: 700,
-                        padding: '0.75rem',
-                        cursor: depositLoading ? 'not-allowed' : 'pointer',
-                        transition: 'background 0.15s',
-                      }}
-                    >
-                      + ${amount.toLocaleString('es-CO')} COP
-                    </button>
-                  ))}
-                </div>
-                {depositSuccess && (
-                  <p style={{ margin: '0.85rem 0 0', color: 'var(--brand-green)', fontSize: '0.84rem', fontWeight: 600 }}>
-                    {depositSuccess}
-                  </p>
-                )}
-              </div>
-            )}
+            <AnimatePresence>
+              {depositOpen && <DepositMenu onClose={() => setDepositOpen(false)} />}
+            </AnimatePresence>
 
             {/* Admin badge */}
             {user.role === 'ADMIN' && (
               <Link to="/admin" style={{
                 display: 'flex', alignItems: 'center', gap: '0.3rem',
-                color: 'var(--brand-gold)',
-                fontSize: 'var(--fs-xs)',
-                fontWeight: '700',
+                color: 'var(--brand-gold)', fontSize: '0.7rem', fontWeight: 700,
                 textDecoration: 'none',
-                padding: '0.3rem 0.65rem',
+                padding: '0.3rem 0.7rem',
                 borderRadius: 'var(--radius-pill)',
-                background: 'rgba(212,175,55,0.15)',
-                border: '1px solid rgba(212,175,55,0.4)',
-                transition: 'background 0.15s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(212,175,55,0.28)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(212,175,55,0.15)')}
-              >
-                <Shield size={13} />
+                background: 'rgba(212,175,55,0.08)',
+                border: '1px solid rgba(212,175,55,0.2)',
+                transition: 'all 0.15s',
+              }}>
+                <Shield size={12} />
                 Admin
               </Link>
             )}
 
-            {/* User name — dinámico desde sesión */}
+            {/* User */}
             <Link to="/profile" style={{
-              display: 'flex', alignItems: 'center', gap: '0.35rem',
-              color: 'rgba(255,255,255,0.85)',
-              fontSize: 'var(--fs-sm)',
-              fontWeight: '600',
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+              color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', fontWeight: 600,
               textDecoration: 'none',
-              padding: '0.3rem 0.65rem',
+              padding: '0.3rem 0.7rem',
               borderRadius: 'var(--radius-pill)',
-              transition: 'background 0.15s',
+              transition: 'all 0.15s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
             >
-              <User size={15} color="rgba(255,255,255,0.55)" />
+              <div style={{
+                width: 24, height: 24, borderRadius: '50%',
+                background: 'rgba(212,175,55,0.15)',
+                border: '1px solid rgba(212,175,55,0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <User size={13} color="var(--brand-gold)" />
+              </div>
               {user.firstName}
             </Link>
 
-            {/* Salir */}
+            {/* Logout */}
             <button
               onClick={signOut}
               style={{
                 display: 'flex', alignItems: 'center', gap: '0.35rem',
-                background: 'rgba(255,255,255,0.07)',
-                color: 'rgba(255,255,255,0.75)',
-                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.04)',
+                color: 'rgba(255,255,255,0.45)',
+                border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: 'var(--radius-pill)',
-                padding: '0.3rem 0.75rem',
+                padding: '0.3rem 0.7rem',
                 cursor: 'pointer',
-                fontSize: 'var(--fs-xs)',
-                fontWeight: '600',
-                transition: 'var(--transition-fast)',
+                fontSize: '0.72rem', fontWeight: 600,
+                transition: 'all 0.15s',
                 fontFamily: 'var(--font-sans)',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.14)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)';
+                (e.currentTarget as HTMLElement).style.color = '#F87171';
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(239,68,68,0.25)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
+                (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)';
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)';
+              }}
             >
-              <LogOut size={ICON_SM} />
+              <LogOut size={13} />
               Salir
             </button>
           </div>
@@ -235,75 +302,64 @@ const Navbar = () => {
   );
 };
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
-const AppRoutes = () => (
-  <Routes>
-    <Route
-      path="/"
-      element={
-        <ProtectedRoute>
-          <Home />
-        </ProtectedRoute>
-      }
-    />
-    <Route
-      path="/events/:id"
-      element={
-        <ProtectedRoute>
-          <EventDetail />
-        </ProtectedRoute>
-      }
-    />
-    <Route
-      path="/profile"
-      element={
-        <ProtectedRoute>
-          <ProfileStats />
-        </ProtectedRoute>
-      }
-    />
-    <Route
-      path="/admin"
-      element={
-        <ProtectedRoute>
-          <Admin />
-        </ProtectedRoute>
-      }
-    />
-    <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes>
+// ─── Page transition wrapper ──────────────────────────────────────────────────
+const PageTransition: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 12 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -8 }}
+    transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+  >
+    {children}
+  </motion.div>
 );
 
-// ─── Root App ─────────────────────────────────────────────────────────────────
+// ─── Routes ───────────────────────────────────────────────────────────────────
+const AppRoutes: React.FC = () => {
+  const loc = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={loc} key={loc.pathname}>
+        <Route path="/" element={<ProtectedRoute><PageTransition><Home /></PageTransition></ProtectedRoute>} />
+        <Route path="/events/:id" element={<ProtectedRoute><PageTransition><EventDetail /></PageTransition></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><PageTransition><ProfileStats /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><PageTransition><Admin /></PageTransition></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AnimatePresence>
+  );
+};
+
+// ─── App Shell ────────────────────────────────────────────────────────────────
+const AppShell: React.FC = () => (
+  <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <Navbar />
+    <main style={{ flex: 1, padding: '2rem 1.25rem 4rem' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <AppRoutes />
+      </div>
+    </main>
+    <footer style={{
+      background: 'var(--bg-surface)',
+      borderTop: '1px solid rgba(212,175,55,0.08)',
+      padding: '1rem 1.25rem',
+      textAlign: 'center',
+    }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.06em' }}>
+        © 2026 <span style={{ color: 'var(--brand-gold)' }}>PasoBet</span> — Ferias Ecuestres Colombia · Fedequinas · Confepaso
+      </p>
+    </footer>
+  </div>
+);
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Login: full-screen sin navbar */}
           <Route path="/login" element={<Login />} />
-
-          {/* App shell: con navbar y footer */}
-          <Route path="/*" element={
-            <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
-              <Navbar />
-              <main style={{ flex: 1, padding: 'var(--space-6) var(--space-5)' }}>
-                <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-                  <AppRoutes />
-                </div>
-              </main>
-              <footer style={{
-                background: 'var(--brand-green)',
-                borderTop: '1px solid rgba(212,175,55,0.2)',
-                padding: 'var(--space-3) var(--space-5)',
-                textAlign: 'center',
-                color: 'rgba(255,255,255,0.35)',
-                fontSize: 'var(--fs-xs)',
-              }}>
-                © 2026 PasoBet — Ferias Equinas Colombia
-              </footer>
-            </div>
-          } />
+          <Route path="/*" element={<AppShell />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

@@ -1,226 +1,250 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Spinner } from '../components/ui/Spinner';
+import { FeriaHeader } from '../components/ui/FeriaHeader';
+import { ModalityCard } from '../components/ui/ModalityCard';
 import type { ApiResponse, Feria } from '../types';
 import {
-  Zap,
-  Repeat,
-  MoveRight,
-  MoveUp,
-  Target,
-  ChevronRight,
-  Building2,
-  MapPin,
-  Calendar,
-  Layers,
-  Users,
-  Coins,
-  ChevronDown
+  Zap, RefreshCw, ArrowLeftRight, ArrowUp, Target,
+  Building2, Search, SlidersHorizontal,
 } from 'lucide-react';
 
-const MODALIDADES_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
-  'paso-fino': { label: 'Paso Fino', icon: Zap, color: 'bg-blue-500' },
-  'trocha': { label: 'Trocha', icon: Repeat, color: 'bg-emerald-500' },
-  'trocha-y-galope': { label: 'Trocha y Galope', icon: MoveRight, color: 'bg-amber-500' },
-  'trote-y-galope': { label: 'Trote y Galope', icon: MoveUp, color: 'bg-purple-500' },
-  'asnales-y-mulares': { label: 'Asnales y Mulares', icon: Target, color: 'bg-rose-500' },
+// ─── Modality visual config ────────────────────────────────────────────────────
+const MODALITY_CONFIG: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
+  'paso-fino':        { icon: <Zap size={20} />,           color: '#D4AF37', label: 'Paso Fino' },
+  'trocha':           { icon: <RefreshCw size={20} />,      color: '#22C55E', label: 'Trocha' },
+  'trocha-y-galope':  { icon: <ArrowLeftRight size={20} />, color: '#3B82F6', label: 'Trocha y Galope' },
+  'trote-y-galope':   { icon: <ArrowUp size={20} />,        color: '#A78BFA', label: 'Trote y Galope' },
+  'asnales-y-mulares':{ icon: <Target size={20} />,         color: '#F97316', label: 'Asnales y Mulares' },
 };
 
+const DEFAULT_MODALITY = { icon: <Zap size={20} />, color: '#D4AF37', label: '' };
+
+// ─── Stagger variants ─────────────────────────────────────────────────────────
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' as const } },
+};
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+const EmptyState: React.FC = () => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.97 }}
+    animate={{ opacity: 1, scale: 1 }}
+    style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: '5rem 2rem', gap: '1rem',
+      background: 'var(--bg-card)',
+      border: '1px dashed rgba(212,175,55,0.15)',
+      borderRadius: 'var(--radius-2xl)',
+    }}
+  >
+    <Building2 size={52} color="rgba(212,175,55,0.2)" strokeWidth={1.5} />
+    <h3 style={{ fontFamily: 'var(--font-brand)', fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+      Sin Ferias Activas
+    </h3>
+    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', maxWidth: 320 }}>
+      No hay competencias disponibles en este momento. Vuelve pronto.
+    </p>
+  </motion.div>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export const Home: React.FC = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [ferias, setFerias] = useState<Feria[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedMods, setExpandedMods] = useState<Record<string, boolean>>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterActive, setFilterActive] = useState(false);
 
-  useEffect(() => {
-    loadFerias();
-  }, []);
+  useEffect(() => { loadFerias(); }, []);
 
   const loadFerias = async () => {
     try {
       setLoading(true);
       const res = await api.get<ApiResponse<Feria[]>>('/events');
-      if (res.data?.success) {
-        setFerias(res.data.data ?? []);
-        // Expandir por defecto la primera modalidad de la primera feria
-        if (res.data.data?.[0]?.modalidades?.[0]) {
-          const firstId = `${res.data.data[0].id}-${res.data.data[0].modalidades[0].id}`;
-          setExpandedMods({ [firstId]: true });
-        }
-      }
-    } catch (err: any) {
-      // Error handled by UI
+      if (res.data?.success) setFerias(res.data.data ?? []);
+    } catch {
+      // handled by empty state
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleMod = (feriaId: string, modId: string) => {
-    const key = `${feriaId}-${modId}`;
-    setExpandedMods(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+  // Filter ferias by search
+  const filteredFerias = ferias.filter(f => {
+    if (!searchQuery) return true;
+    return f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           f.location.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
+  // ── Loading ──
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[500px] gap-6">
-        <div className="relative">
-          <div className="w-20 h-20 border-4 border-brand-green/10 rounded-full animate-pulse" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Spinner size={40} color="var(--brand-green)" />
-          </div>
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', minHeight: '60vh', gap: '1.25rem',
+      }}>
+        <div style={{ position: 'relative' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            border: '2px solid rgba(212,175,55,0.1)',
+            position: 'absolute', inset: 0, margin: 'auto',
+            animation: 'pulse 2s infinite',
+          }} />
+          <Spinner size={40} color="var(--brand-gold)" />
         </div>
-        <div className="text-center">
-          <h2 className="text-xl font-black text-brand-green uppercase tracking-widest">Sincronizando</h2>
-          <p className="text-gray-400 text-sm font-medium">Arquitectura Profesional Fedequinas</p>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-brand)', fontSize: '1rem', fontWeight: 800, color: 'var(--brand-gold)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+            Cargando Ferias
+          </p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
+            Sincronizando con Fedequinas...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 animate-fadeIn">
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <header className="mb-12">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="bg-brand-green p-2 rounded-lg shadow-lg shadow-brand-green/20">
-            <Layers className="text-white" size={24} />
-          </div>
-          <h1 className="text-3xl font-black text-brand-green uppercase tracking-tighter">
-            Estructura de Competencias
+    <div style={{ minHeight: '80vh' }}>
+      {/* ── Page Header ──────────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        style={{ marginBottom: '2.5rem' }}
+      >
+        {/* Greeting */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+            Bienvenido de nuevo
+          </p>
+          <h1 style={{
+            fontFamily: 'var(--font-brand)', fontSize: 'clamp(1.5rem, 3vw, 2.2rem)',
+            fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.1,
+          }}>
+            {user?.firstName ? (
+              <>{user.firstName} <span className="gradient-gold-text">PasoBet</span></>
+            ) : (
+              <><span className="gradient-gold-text">PasoBet</span> Colombia</>
+            )}
           </h1>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
+            Plataforma oficial de apuestas en ferias ecuestres · Fedequinas
+          </p>
         </div>
-        <p className="text-gray-400 font-bold ml-12">
-          Bienvenido, <span className="text-brand-gold">{user?.firstName}</span> • Panel Jerárquico Oficial
-        </p>
-      </header>
 
-      {/* ── Ferias Loop ─────────────────────────────────────────────────────── */}
-      <div className="space-y-16">
-        {ferias.map((feria) => (
-          <section key={feria.id} className="relative">
-            {/* Feria Identity */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 border-l-4 border-brand-gold pl-6 py-2">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Building2 size={18} className="text-brand-gold" />
-                  <h2 className="text-2xl font-black text-brand-green uppercase tracking-tight">{feria.name}</h2>
-                </div>
-                <div className="flex flex-wrap gap-6 text-xs font-black text-gray-400 uppercase tracking-widest">
-                  <span className="flex items-center gap-2"><MapPin size={14} className="text-gray-300" /> {feria.location}</span>
-                  <span className="flex items-center gap-2"><Calendar size={14} className="text-gray-300" /> {new Date(feria.startDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="bg-gray-50 border border-gray-100 px-4 py-2 rounded-xl text-center">
-                  <p className="text-[10px] font-black text-gray-400 uppercase">Modalidades</p>
-                  <p className="text-lg font-black text-brand-green">{feria.modalidades.length}</p>
-                </div>
-                <div className={`px-4 py-2 rounded-xl text-center font-black uppercase text-[10px] tracking-widest ${
-                  feria.status === 'activa' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-500'
-                }`}>
-                  Feria {feria.status}
-                </div>
-              </div>
-            </div>
+        {/* Search + Filter bar */}
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div style={{
+            flex: 1, minWidth: 200,
+            display: 'flex', alignItems: 'center', gap: '0.6rem',
+            background: 'var(--bg-card)',
+            border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '0.6rem 1rem',
+          }}>
+            <Search size={15} color="var(--text-muted)" />
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Buscar feria o ciudad..."
+              style={{
+                flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                color: 'var(--text-primary)', fontSize: '0.85rem',
+                fontFamily: 'var(--font-sans)',
+              }}
+            />
+          </div>
+          <button
+            onClick={() => setFilterActive(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: '0.6rem 1rem',
+              background: filterActive ? 'rgba(212,175,55,0.15)' : 'var(--bg-card)',
+              border: `1px solid ${filterActive ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.07)'}`,
+              borderRadius: 'var(--radius-lg)',
+              color: filterActive ? 'var(--brand-gold)' : 'var(--text-muted)',
+              fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <SlidersHorizontal size={15} />
+            Filtros
+          </button>
+        </div>
+      </motion.div>
 
-            {/* Modalidades Hierarchy (The Core Change) */}
-            <div className="space-y-6">
-              {(feria.modalidades || []).map((mod) => {
-                const config = MODALIDADES_CONFIG[mod.slug] || { label: mod.nombre, icon: Zap, color: 'bg-gray-500' };
-                const Icon = config.icon;
-                const isExpanded = expandedMods[`${feria.id}-${mod.id}`];
+      {/* ── Ferias ───────────────────────────────────────────────────────── */}
+      {filteredFerias.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}
+        >
+          {filteredFerias.map((feria, feriaIdx) => {
+            const totalComps = (feria.modalidades ?? []).reduce(
+              (acc, m) => acc + (m.sexos ?? []).reduce(
+                (a, s) => a + (s.competencias?.length ?? 0), 0
+              ), 0
+            );
 
-                return (
-                  <div key={mod.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden transition-all duration-500">
-                    {/* Level 1: Modalidad Header */}
-                    <button 
-                      onClick={() => toggleMod(feria.id, mod.id)}
-                      className="w-full flex items-center justify-between p-6 hover:bg-gray-50/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={`${config.color} p-3 rounded-2xl shadow-lg shadow-black/5`}>
-                          <Icon className="text-white" size={24} />
-                        </div>
-                        <div className="text-left">
-                          <h3 className="text-xl font-black text-brand-green uppercase tracking-tight">{config.label}</h3>
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{(mod.sexos || []).length} Categorías de Sexo</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                        <ChevronDown size={20} className="text-gray-400" />
-                      </div>
-                    </button>
+            return (
+              <motion.section
+                key={feria.id}
+                variants={itemVariants}
+              >
+                {/* Feria header */}
+                <FeriaHeader feria={feria} totalCompetencias={totalComps} />
 
-                    {isExpanded && (
-                      <div className="p-6 pt-0 border-t border-gray-50 animate-slideDown">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
-                          {(mod.sexos || []).map((sexo: any) => (
-                            <div key={sexo.id} className="relative">
-                              {/* Level 2: Sex Header */}
-                              <div className="flex items-center gap-3 mb-6">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${sexo.nombre?.includes('Machos') ? 'bg-blue-50 text-blue-500' : 'bg-pink-50 text-pink-500'}`}>
-                                  <span className="font-black text-sm">{sexo.nombre?.includes('Machos') ? '♂' : '♀'}</span>
-                                </div>
-                                <h4 className="text-sm font-black text-brand-green uppercase tracking-widest">{sexo.nombre}</h4>
-                                <div className="flex-1 h-[1px] bg-gray-100" />
-                              </div>
-
-                              {/* Level 3: Age Ranges / Competencies */}
-                              <div className="space-y-3">
-                                {(sexo.competencias || []).map((comp: any) => (
-                                  <div 
-                                    key={comp.id}
-                                    onClick={() => comp.status !== 'cerrada' && navigate(`/events/${comp.id}`)}
-                                    className={`group flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
-                                      comp.status === 'en_vivo' 
-                                        ? 'bg-red-50/30 border-red-100 hover:bg-red-50 hover:border-red-200' 
-                                        : 'bg-gray-50/50 border-transparent hover:bg-white hover:border-brand-gold hover:shadow-xl hover:shadow-brand-gold/5'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-4">
-                                      <div className={`w-2 h-2 rounded-full ${comp.status === 'en_vivo' ? 'bg-red-500 animate-pulse' : 'bg-brand-green/30'}`} />
-                                      <div>
-                                        <p className="text-xs font-black text-brand-green uppercase tracking-tight">{comp.ageRange.nombre}</p>
-                                        <div className="flex items-center gap-3 mt-1">
-                                          <span className="flex items-center gap-1 text-[9px] font-bold text-gray-400 uppercase"><Users size={10} /> {comp.horseCount} Participantes</span>
-                                          <span className="flex items-center gap-1 text-[9px] font-bold text-gray-400 uppercase"><Coins size={10} /> {comp.betCount} Apuestas</span>
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-3">
-                                      {comp.status === 'en_vivo' && (
-                                        <span className="bg-red-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">En Vivo</span>
-                                      )}
-                                      <div className="w-8 h-8 rounded-full bg-white border border-gray-100 flex items-center justify-center group-hover:bg-brand-gold group-hover:text-white group-hover:border-brand-gold transition-all">
-                                        <ChevronRight size={16} />
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                {/* Modality grid */}
+                {(feria.modalidades ?? []).length === 0 ? (
+                  <div style={{
+                    padding: '2rem', textAlign: 'center',
+                    color: 'var(--text-muted)', fontSize: '0.8rem',
+                    background: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-xl)',
+                    border: '1px dashed rgba(255,255,255,0.06)',
+                  }}>
+                    No hay modalidades configuradas para esta feria.
                   </div>
-                );
-              })}
-            </div>
-          </section>
-        ))}
-      </div>
-
-      {ferias.length === 0 && (
-        <div className="text-center py-24 bg-white rounded-[40px] border-2 border-dashed border-gray-100">
-          <Building2 className="mx-auto text-gray-200 mb-6" size={64} />
-          <h3 className="text-xl font-black text-brand-green uppercase">Sin Ferias Activas</h3>
-          <p className="text-gray-400 mt-2 font-medium">Sincroniza con el sistema central para cargar eventos.</p>
-        </div>
+                ) : (
+                  <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                    style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}
+                  >
+                    {(feria.modalidades ?? []).map((mod, modIdx) => {
+                      const cfg = MODALITY_CONFIG[mod.slug] ?? { ...DEFAULT_MODALITY, label: mod.nombre };
+                      return (
+                        <motion.div key={mod.id} variants={itemVariants}>
+                          <ModalityCard
+                            modality={mod}
+                            icon={cfg.icon}
+                            color={cfg.color}
+                            defaultOpen={feriaIdx === 0 && modIdx === 0}
+                          />
+                        </motion.div>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </motion.section>
+            );
+          })}
+        </motion.div>
       )}
     </div>
   );
