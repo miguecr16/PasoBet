@@ -40,16 +40,91 @@ export const updateEventStatus = async (req: Request, res: Response, next: NextF
   }
 };
 
+export const listCompetitionCategories = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const categories = await prisma.competitionCategory.findMany({
+      orderBy: [{ modalidad: 'asc' }, { sexo: 'asc' }, { edadMin: 'asc' }]
+    });
+    res.status(200).json({ success: true, data: categories });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const listFerias = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const ferias = await prisma.feria.findMany({
+      orderBy: { fechaInicio: 'asc' },
+      include: {
+        competencias: {
+          include: { categoria: true }
+        }
+      }
+    });
+    res.status(200).json({ success: true, data: ferias });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const listFeriaCompetitions = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const feriaId = req.params.id as string;
+    const competencias = await prisma.competencia.findMany({
+      where: { feriaId },
+      include: { categoria: true }
+    });
+    res.status(200).json({ success: true, data: competencias });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const activateCategoryForFeria = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const feriaId = req.params.id as string;
+    const { categoryId, estado } = req.body;
+
+    if (!categoryId) return next(new AppError('categoryId es requerido', 400));
+
+    const existing = await prisma.competencia.findUnique({
+      where: { feriaId_categoriaId: { feriaId, categoriaId: categoryId } }
+    });
+
+    if (existing) {
+      const competencia = await prisma.competencia.update({
+        where: { id: existing.id },
+        data: { estado: estado || existing.estado }
+      });
+      return res.status(200).json({ success: true, data: competencia });
+    }
+
+    const competencia = await prisma.competencia.create({
+      data: {
+        feriaId,
+        categoriaId: categoryId,
+        estado: estado || 'inactiva'
+      }
+    });
+
+    res.status(201).json({ success: true, data: competencia });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // --- Horses ---
 
 export const createHorse = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, breed, odds } = req.body;
+    const { name, breed, odds, sexo, edadMeses } = req.body;
 
     const caballo = await prisma.caballo.create({
       data: {
         nombre: name,
         criadero: breed,
+        sexo: sexo || undefined,
+        edadMeses: edadMeses ? Number(edadMeses) : undefined,
         cuotaBase: odds || 2.0,
         cuotaActual: odds || 2.0
       }
