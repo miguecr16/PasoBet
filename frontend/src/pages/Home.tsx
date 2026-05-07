@@ -7,7 +7,7 @@ import { ModalityDetail } from '../components/ui/ModalityDetail';
 import type { ApiResponse, Feria, ModalityNode } from '../types';
 import {
   MapPin, Calendar, Trophy, Users, Search,
-  SlidersHorizontal, ChevronDown, Building2,
+  SlidersHorizontal, Building2, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 // ─── Modality config ──────────────────────────────────────────────────────────
@@ -162,70 +162,18 @@ const ModCard: React.FC<ModCardProps> = ({ mod, isActive, onClick }) => {
         borderTop: '1px solid rgba(255,255,255,0.06)',
         paddingTop: '.6rem', marginTop: 'auto',
       }}>
-        Ver categorías →
+        {isActive ? 'Cerrar categorías' : 'Ver categorías'} {isActive ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
       </div>
     </motion.button>
   );
 };
 
-// ─── Collapsed modality row (remaining modalities below active) ───────────────
-const CollapseRow: React.FC<{ mod: ModalityNode; onClick: () => void }> = ({ mod, onClick }) => {
-  const cfg = getModConfig(mod.slug, mod.nombre);
-  const totalComps = mod.sexos?.reduce((a, s) => a + (s.competencias?.length ?? 0), 0) ?? 0;
-  const totalParts = mod.sexos?.reduce((a, s) => a + (s.competencias?.reduce((b, c) => b + ((c as any).horseCount ?? 0), 0) ?? 0), 0) ?? 0;
-
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '.85rem 1.2rem',
-        background: 'var(--bg-card)',
-        border: '1px solid rgba(255,255,255,0.07)',
-        borderRadius: 'var(--r-xl)',
-        cursor: 'pointer', outline: 'none',
-        transition: 'all .2s ease',
-        gap: '1rem',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(212,175,55,0.22)')}
-      onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '.85rem', flex: 1, minWidth: 0 }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: 'var(--r-md)',
-          background: `${cfg.color}18`, border: `1px solid ${cfg.color}35`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0,
-        }}>{cfg.icon}</div>
-        <span style={{ fontFamily: 'var(--font-brand)', fontWeight: 800, fontSize: '.95rem', color: 'var(--text-primary)' }}>
-          {cfg.label}
-        </span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '.3rem', color: 'var(--brand-gold)', justifyContent: 'center' }}>
-            <Trophy size={12} />
-            <span style={{ fontWeight: 800, fontSize: '.95rem' }}>{totalComps}</span>
-          </div>
-          <p style={{ fontSize: '.58rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>Competencias</p>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '.3rem', color: 'var(--text-secondary)', justifyContent: 'center' }}>
-            <Users size={12} />
-            <span style={{ fontWeight: 800, fontSize: '.95rem' }}>{totalParts}</span>
-          </div>
-          <p style={{ fontSize: '.58rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>Participantes</p>
-        </div>
-        <ChevronDown size={17} color="var(--text-muted)" />
-      </div>
-    </button>
-  );
-};
-
 // ─── Feria Section ────────────────────────────────────────────────────────────
-const FeriaSection: React.FC<{ feria: Feria; defaultActiveModIdx?: number }> = ({ feria, defaultActiveModIdx = 0 }) => {
+const FeriaSection: React.FC<{ feria: Feria; isFirst?: boolean }> = ({ feria, isFirst = false }) => {
   const [activeModId, setActiveModId] = useState<string | null>(
-    feria.modalidades?.[defaultActiveModIdx]?.id ?? null
+    isFirst && feria.modalidades?.[0]?.id ? feria.modalidades[0].id : null
   );
+  const [isExpanded, setIsExpanded] = useState(isFirst);
 
   const totalComps = (feria.modalidades ?? []).reduce(
     (a, m) => a + (m.sexos ?? []).reduce((b, s) => b + (s.competencias?.length ?? 0), 0), 0
@@ -233,66 +181,106 @@ const FeriaSection: React.FC<{ feria: Feria; defaultActiveModIdx?: number }> = (
 
   const activeMod = feria.modalidades?.find(m => m.id === activeModId) ?? null;
   const activeModCfg = activeMod ? getModConfig(activeMod.slug, activeMod.nombre) : DEFAULT_MOD;
-  const otherMods = (feria.modalidades ?? []).filter(m => m.id !== activeModId);
 
   return (
-    <section>
-      {/* Hero */}
-      <FeriaHero feria={feria} totalComps={totalComps} />
-
-      {/* Modalidades section label */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', marginBottom: '1rem' }}>
-        <span style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--brand-gold)', letterSpacing: '.04em' }}>🏆 Modalidades</span>
+    <section style={{ 
+      background: 'rgba(255,255,255,0.02)', 
+      padding: '1.5rem', 
+      borderRadius: 'var(--r-2xl)',
+      border: '1px solid rgba(255,255,255,0.05)',
+      marginBottom: '2rem'
+    }}>
+      {/* Feria Title Accordion */}
+      <div 
+        onClick={() => setIsExpanded(!isExpanded)}
+        style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          cursor: 'pointer',
+          marginBottom: isExpanded ? '1.5rem' : 0
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ 
+            width: 42, height: 42, borderRadius: 'var(--r-lg)', 
+            background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <Building2 size={20} color="var(--brand-gold)" />
+          </div>
+          <div>
+            <h3 style={{ fontFamily: 'var(--font-brand)', fontWeight: 800, fontSize: '1.2rem', color: 'var(--text-primary)' }}>
+              {feria.name}
+            </h3>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{feria.location} • {totalComps} competencias</p>
+          </div>
+        </div>
+        <div style={{ 
+          width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'transform 0.3s ease',
+          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)'
+        }}>
+          <ChevronDown size={18} color="var(--text-muted)" />
+        </div>
       </div>
 
-      {/* Cards grid (all 5) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-        gap: '.75rem',
-        marginBottom: '1.25rem',
-      }}>
-        {(feria.modalidades ?? []).map(mod => (
-          <ModCard
-            key={mod.id}
-            mod={mod}
-            isActive={mod.id === activeModId}
-            onClick={() => setActiveModId(cur => cur === mod.id ? null : mod.id)}
-          />
-        ))}
-      </div>
-
-      {/* Active modality — detail expanded */}
-      <AnimatePresence mode="wait">
-        {activeMod && (
+      <AnimatePresence>
+        {isExpanded && (
           <motion.div
-            key={activeMod.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            style={{ overflow: 'hidden' }}
           >
-            <ModalityDetail
-              modality={activeMod}
-              accentColor={activeModCfg.color}
-              icon={activeModCfg.icon}
-            />
+            {/* Hero */}
+            <FeriaHero feria={feria} totalComps={totalComps} />
+
+            {/* Modalidades section label */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', marginBottom: '1rem' }}>
+              <span style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--brand-gold)', letterSpacing: '.04em' }}>🏆 Modalidades FEDEQUINAS</span>
+            </div>
+
+            {/* Cards grid (all 5) */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+              gap: '.75rem',
+              marginBottom: '1.25rem',
+            }}>
+              {(feria.modalidades ?? []).map(mod => (
+                <ModCard
+                  key={mod.id}
+                  mod={mod}
+                  isActive={mod.id === activeModId}
+                  onClick={() => setActiveModId(cur => cur === mod.id ? null : mod.id)}
+                />
+              ))}
+            </div>
+
+            {/* Active modality — detail expanded */}
+            <AnimatePresence mode="wait">
+              {activeMod && (
+                <motion.div
+                  key={activeMod.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  <ModalityDetail
+                    modality={activeMod}
+                    accentColor={activeModCfg.color}
+                    icon={activeModCfg.icon}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Other modalities — collapsed rows */}
-      {otherMods.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem', marginTop: '1rem' }}>
-          {otherMods.map(mod => (
-            <CollapseRow
-              key={mod.id}
-              mod={mod}
-              onClick={() => setActiveModId(mod.id)}
-            />
-          ))}
-        </div>
-      )}
     </section>
   );
 };
@@ -393,10 +381,10 @@ export const Home: React.FC = () => {
       ) : (
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}
-          style={{ display: 'flex', flexDirection: 'column', gap: '3.5rem' }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}
         >
-          {filtered.map((feria) => (
-            <FeriaSection key={feria.id} feria={feria} defaultActiveModIdx={0} />
+          {filtered.map((feria, idx) => (
+            <FeriaSection key={feria.id} feria={feria} isFirst={idx === 0} />
           ))}
         </motion.div>
       )}
