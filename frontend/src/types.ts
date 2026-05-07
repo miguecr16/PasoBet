@@ -50,6 +50,20 @@ export interface HorseOnEvent {
   horse: Horse;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  modalidad: string;
+  sexo: string;
+  edadMin: number;
+  edadMax?: number | null;
+  slug: string;
+  status: string;
+  horseCount?: number;
+  betCount?: number;
+  horses: HorseOnEvent[];
+}
+
 export interface Feria {
   id: string;
   name: string;
@@ -57,14 +71,18 @@ export interface Feria {
   startDate: string;
   endDate: string;
   status: string;
-  categories: Event[];
+  categories: Category[];
 }
 
-// Categoria del backend mapeada al formato Event del frontend
 export interface Event {
   id: string;
   name: string;
-  status: string;          // 'abierta' | 'en_curso' | 'cerrada'
+  modalidad: string;
+  sexo: string;
+  edadMin: number;
+  edadMax?: number | null;
+  slug: string;
+  status: string;
   createdAt?: string;
   totalPool?: number;
   horseCount?: number;

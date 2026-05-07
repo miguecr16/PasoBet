@@ -5,9 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Spinner } from '../components/ui/Spinner';
-import type { ApiResponse, Feria } from '../types';
+import type { ApiResponse, Feria, Category } from '../types';
 import {
-  Award,
+  Zap,
+  Repeat,
+  MoveRight,
+  MoveUp,
+  Target,
   ChevronRight,
   Radio,
   AlertCircle,
@@ -15,17 +19,22 @@ import {
   Building2,
   MapPin,
   Calendar,
+  CheckCircle2,
 } from 'lucide-react';
 
-// ─── Icon size token ───────────────────────────────────────────────────────────
-const ICON_SM = 14;
+// ─── Modalidad Config ────────────────────────────────────────────────────────
+const MODALIDADES_CONFIG: Record<string, { label: string; icon: any }> = {
+  PASO_FINO: { label: 'Paso Fino', icon: Zap },
+  TROCHA: { label: 'Trocha', icon: Repeat },
+  TROCHA_GALOPE: { label: 'Trocha y Galope', icon: MoveRight },
+  TROTE_GALOPE: { label: 'Trote y Galope', icon: MoveUp },
+  ASNALES_MULARES: { label: 'Asnales y Mulares', icon: Target },
+};
 
-// Etiquetas de estado del evento (backend usa español)
 const STATUS_LABELS: Record<string, string> = {
   abierta: 'Abierta',
   en_vivo: 'En vivo',
   cerrada: 'Cerrada',
-  activa: 'Activa',
 };
 
 export const Home: React.FC = () => {
@@ -35,6 +44,10 @@ export const Home: React.FC = () => {
   const [ferias, setFerias] = useState<Feria[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Navigation State
+  const [selectedModality, setSelectedModality] = useState<string>('PASO_FINO');
+  const [selectedSexo, setSelectedSexo] = useState<'MACHO' | 'HEMBRA'>('MACHO');
 
   useEffect(() => {
     loadFerias();
@@ -45,14 +58,13 @@ export const Home: React.FC = () => {
       setLoading(true);
       setError('');
       const res = await api.get<ApiResponse<Feria[]>>('/events');
-
       if (res.data?.success) {
         setFerias(res.data.data ?? []);
       } else {
-        setError(res.data?.message ?? 'No se pudieron cargar las ferias');
+        setError(res.data?.message ?? 'Error al cargar eventos');
       }
     } catch (err: any) {
-      setError(err?.message ?? 'No se pudieron cargar las ferias');
+      setError(err?.message ?? 'Error de conexión');
     } finally {
       setLoading(false);
     }
@@ -60,144 +72,173 @@ export const Home: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 'var(--space-3)', color: 'var(--text-secondary)' }}>
-        <Spinner size={36} color="var(--brand-green)" />
-        <span style={{ fontSize: 'var(--fs-lg)' }}>Cargando información...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-3)' }}>
-          <AlertCircle size={48} color="var(--danger)" strokeWidth={1.5} />
-        </div>
-        <p style={{ color: 'var(--danger)', fontWeight: '600', marginBottom: 'var(--space-4)' }}>{error}</p>
-        <Button variant="outline" leftIcon={<RefreshCw size={ICON_SM} />} onClick={loadFerias}>
-          Intentar de nuevo
-        </Button>
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 text-gray-500">
+        <Spinner size={40} color="var(--brand-green)" />
+        <p className="text-lg font-medium">Sincronizando con Fedequinas...</p>
       </div>
     );
   }
 
   return (
-    <div style={{ animation: 'fadeIn 0.3s ease forwards' }}>
-      {/* ── Welcome section ──────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: 'var(--space-4)',
-        marginBottom: 'var(--space-8)',
-      }}>
-        <div>
-          <h1 style={{ fontSize: 'var(--fs-3xl)', fontWeight: '800', color: 'var(--brand-green)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-            Bienvenido, {user?.firstName}
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.35rem', fontSize: 'var(--fs-base)' }}>
-            Explora las ferias equinas y realiza tus apuestas en cada categoría
-          </p>
-        </div>
-
+    <div className="animate-fadeIn">
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-extrabold text-brand-green leading-tight">
+          Panel de Competencias
+        </h1>
+        <p className="text-gray-500 mt-1">
+          Estructura profesional Fedequinas • Bienvenida, {user?.firstName}
+        </p>
       </div>
 
-      {/* ── Ferias section ───────────────────────────────────────────────────── */}
-      {ferias.length === 0 ? (
-        <Card style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-3)' }}>
-            <Building2 size={48} color="var(--text-muted)" strokeWidth={1.5} />
-          </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-lg)' }}>No hay ferias disponibles en este momento.</p>
-        </Card>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-10)' }}>
-          {ferias.map((feria) => (
-            <section key={feria.id}>
-              {/* Feria Header */}
-              <div style={{ 
-                borderLeft: '4px solid var(--brand-gold)', 
-                paddingLeft: 'var(--space-4)',
-                marginBottom: 'var(--space-5)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-end'
-              }}>
+      {/* ── Filters ─────────────────────────────────────────────────────────── */}
+      <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 mb-8 sticky top-4 z-10">
+        {/* Modality Tabs */}
+        <div className="flex overflow-x-auto gap-2 pb-2 mb-4 scrollbar-hide">
+          {Object.entries(MODALIDADES_CONFIG).map(([key, config]) => {
+            const Icon = config.icon;
+            const isSelected = selectedModality === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setSelectedModality(key)}
+                className={`flex items-center gap-2 px-5 py-3 rounded-xl transition-all whitespace-nowrap font-bold text-sm ${
+                  isSelected 
+                    ? 'bg-brand-green text-white shadow-lg shadow-brand-green/20 scale-105' 
+                    : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                }`}
+              >
+                <Icon size={18} strokeWidth={isSelected ? 2.5 : 2} />
+                {config.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sex Toggle */}
+        <div className="flex bg-gray-50 p-1 rounded-xl w-fit mx-auto sm:mx-0">
+          {(['MACHO', 'HEMBRA'] as const).map((sexo) => (
+            <button
+              key={sexo}
+              onClick={() => setSelectedSexo(sexo)}
+              className={`px-8 py-2 rounded-lg text-xs font-black transition-all ${
+                selectedSexo === sexo
+                  ? 'bg-white text-brand-green shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              {sexo === 'MACHO' ? '♂ MACHOS' : '♀ HEMBRAS'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Content ─────────────────────────────────────────────────────────── */}
+      <div className="space-y-12">
+        {ferias.map((feria) => {
+          // Filtrar competencias por modalidad y sexo seleccionados
+          const filteredCompetencias = feria.categories.filter(
+            c => c.modalidad === selectedModality && c.sexo === selectedSexo
+          );
+
+          if (filteredCompetencias.length === 0) return null;
+
+          return (
+            <section key={feria.id} className="relative">
+              {/* Feria Info */}
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 px-2">
                 <div>
-                  <h2 style={{ fontSize: 'var(--fs-2xl)', fontWeight: '800', color: 'var(--brand-green)', marginBottom: '0.25rem' }}>
-                    {feria.name}
-                  </h2>
-                  <div style={{ display: 'flex', gap: 'var(--space-4)', color: 'var(--text-muted)', fontSize: 'var(--fs-sm)' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <MapPin size={14} /> {feria.location}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <Calendar size={14} /> 
-                      {new Date(feria.startDate).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })} - {new Date(feria.endDate).toLocaleDateString('es-CO', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Building2 size={16} className="text-brand-gold" />
+                    <h2 className="text-xl font-black text-brand-green uppercase tracking-tight">
+                      {feria.name}
+                    </h2>
+                  </div>
+                  <div className="flex flex-wrap gap-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                    <span className="flex items-center gap-1.5"><MapPin size={12} /> {feria.location}</span>
+                    <span className="flex items-center gap-1.5"><Calendar size={12} /> {new Date(feria.startDate).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-xs)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {feria.categories.length} Categorías
+                <div className="bg-brand-gold/10 text-brand-gold px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase">
+                  {filteredCompetencias.length} Eventos Activos
                 </div>
               </div>
 
-              {/* Categorías Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-4)' }}>
-                {feria.categories.map((cat) => {
-                  const isLive = cat.status === 'en_curso';
+              {/* Competencias Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                {filteredCompetencias.sort((a, b) => a.edadMin - b.edadMin).map((comp) => {
+                  const isLive = comp.status === 'en_vivo';
+                  const isClosed = comp.status === 'cerrada';
+                  
                   return (
                     <Card
-                      key={cat.id}
-                      hoverable
-                      style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', background: 'white' }}
-                      onClick={() => navigate(`/events/${cat.id}`)}
+                      key={comp.id}
+                      hoverable={!isClosed}
+                      onClick={() => !isClosed && navigate(`/events/${comp.id}`)}
+                      className={`relative overflow-hidden group transition-all ${
+                        isClosed ? 'opacity-60 grayscale cursor-not-allowed' : 'cursor-pointer hover:border-brand-gold'
+                      }`}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                         <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          background: isLive ? 'rgba(220,38,38,0.08)' : 'rgba(11,61,46,0.07)',
-                          color: isLive ? 'var(--danger)' : 'var(--brand-green)',
-                          borderRadius: 'var(--radius-sm)',
-                          padding: '0.2rem 0.5rem',
-                          fontSize: '10px',
-                          fontWeight: '800',
-                          textTransform: 'uppercase',
-                        }}>
-                          {isLive ? <Radio size={10} /> : <Award size={10} />}
-                          {STATUS_LABELS[cat.status] || cat.status}
-                        </span>
-                      </div>
-
-                      <h3 style={{ fontSize: 'var(--fs-base)', fontWeight: '700', color: 'var(--text-primary)', margin: '0.25rem 0' }}>
-                        {cat.name}
-                      </h3>
-
-                      <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 'auto', borderTop: '1px solid var(--border-subtle)', paddingTop: 'var(--space-3)' }}>
-                        <div>
-                          <p style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Caballos</p>
-                          <p style={{ fontSize: 'var(--fs-lg)', fontWeight: '800', color: 'var(--brand-green)' }}>{cat.horseCount}</p>
-                        </div>
-                        <div>
-                          <p style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Apuestas</p>
-                          <p style={{ fontSize: 'var(--fs-lg)', fontWeight: '800', color: 'var(--brand-gold-dark)' }}>{cat.betCount}</p>
-                        </div>
-                        <div style={{ marginLeft: 'auto', alignSelf: 'center' }}>
-                          <ChevronRight size={20} color="var(--border-strong)" />
+                      {/* Status Badge */}
+                      <div className="absolute top-0 right-0">
+                        <div className={`px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-tighter ${
+                          isLive ? 'bg-red-500 text-white animate-pulse' : 
+                          isClosed ? 'bg-gray-200 text-gray-500' : 'bg-brand-green/10 text-brand-green'
+                        }`}>
+                          {isLive && <Radio size={10} className="inline mr-1 mb-0.5" />}
+                          {STATUS_LABELS[comp.status]}
                         </div>
                       </div>
+
+                      {/* Content */}
+                      <div className="pt-6 pb-4 px-5">
+                        <p className="text-[10px] font-black text-brand-gold uppercase tracking-[0.2em] mb-1">
+                          Edad
+                        </p>
+                        <h3 className="text-2xl font-black text-brand-green mb-4">
+                          {comp.edadMin === 100 ? '+100' : `${comp.edadMin}-${comp.edadMax}`}
+                          <span className="text-xs font-medium text-gray-400 ml-1 tracking-normal">meses</span>
+                        </h3>
+
+                        <div className="flex items-center justify-between border-t border-gray-50 pt-4">
+                          <div className="flex gap-4">
+                            <div className="text-center">
+                              <p className="text-[8px] font-bold text-gray-400 uppercase">Horses</p>
+                              <p className="text-sm font-black text-brand-green">{comp.horseCount}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-[8px] font-bold text-gray-400 uppercase">Bets</p>
+                              <p className="text-sm font-black text-brand-gold-dark">{comp.betCount}</p>
+                            </div>
+                          </div>
+                          {!isClosed && (
+                            <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-brand-gold group-hover:text-white transition-colors">
+                              <ChevronRight size={18} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Footer Decoration */}
+                      <div className={`h-1 w-full ${isLive ? 'bg-red-500' : isClosed ? 'bg-gray-200' : 'bg-brand-green'}`} />
                     </Card>
                   );
                 })}
               </div>
             </section>
-          ))}
+          );
+        })}
+      </div>
+
+      {ferias.every(f => f.categories.filter(c => c.modalidad === selectedModality && c.sexo === selectedSexo).length === 0) && (
+        <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+          <Building2 className="mx-auto text-gray-300 mb-4" size={48} />
+          <p className="text-gray-500 font-bold">No hay competencias activas para esta selección.</p>
+          <Button variant="outline" className="mt-4" onClick={loadFerias}>Refrescar Sistema</Button>
         </div>
       )}
     </div>
   );
 };
+
 

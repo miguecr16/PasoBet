@@ -5,6 +5,7 @@ import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import { EventDetail } from './pages/EventDetail';
 import { ProfileStats } from './pages/ProfileStats';
+import { Admin } from './pages/Admin';
 import { Spinner } from './components/ui/Spinner';
 import api from './services/api';
 
@@ -258,6 +259,14 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <ProfileStats />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/admin"
+      element={
+        <ProtectedRoute>
+          <Admin />
         </ProtectedRoute>
       }
     />
