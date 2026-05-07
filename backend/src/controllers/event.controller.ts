@@ -14,6 +14,7 @@ export const getEvents = async (req: Request, res: Response, next: NextFunction)
       orderBy: { creadoEn: 'desc' },
       include: {
         competencias: {
+          where: { estado: { not: 'inactiva' } },
           include: {
             categoria: true,
             participaciones: {
@@ -34,8 +35,13 @@ export const getEvents = async (req: Request, res: Response, next: NextFunction)
       endDate: f.fechaFin,
       status: f.estado,
       categories: f.competencias.map((comp: any) => ({
-        id: comp.id, // IMPORTANTE: El ID aquí es el de la Competencia (Feria+Categoria)
+        id: comp.id,
         name: comp.categoria.nombre,
+        modalidad: comp.categoria.modalidad,
+        sexo: comp.categoria.sexo,
+        edadMin: comp.categoria.edadMin,
+        edadMax: comp.categoria.edadMax,
+        slug: comp.categoria.slug,
         status: comp.estado,
         horseCount: comp.participaciones.length,
         betCount: comp._count.apuestas,
@@ -84,8 +90,13 @@ export const getEventById = async (req: Request, res: Response, next: NextFuncti
     const event = {
       id: competencia.id,
       name: competencia.categoria.nombre,
+      modalidad: competencia.categoria.modalidad,
+      sexo: competencia.categoria.sexo,
+      edadMin: competencia.categoria.edadMin,
+      edadMax: competencia.categoria.edadMax,
+      slug: competencia.categoria.slug,
       status: competencia.estado,
-      totalPool, 
+      totalPool,
       horses: competencia.participaciones.map((p: any) => {
         const cab = p.caballo;
         const horsePool = pools.find((pl: any) => pl.caballoId === cab.id)?.totalApostado || 0;
@@ -95,9 +106,9 @@ export const getEventById = async (req: Request, res: Response, next: NextFuncti
           horseId: cab.id,
           odds: cab.cuotaActual || cab.cuotaBase,
           poolPercentage: parseFloat(poolPercentage.toFixed(2)), 
-          horse: { 
-            id: cab.id, 
-            name: cab.nombre, 
+          horse: {
+            id: cab.id,
+            name: cab.nombre,
             breed: cab.criadero,
             stats: {
               carrerasJugadas: cab.carrerasJugadas,

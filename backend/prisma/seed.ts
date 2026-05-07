@@ -3,24 +3,49 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+const MODALIDADES = [
+  'Paso Fino',
+  'Trocha',
+  'Trocha y Galope',
+  'Trote y Galope',
+  'Asnales y Mulares',
+];
+
+const SEXOS = ['Machos', 'Hembras'];
+
+const RANGOS_EDAD = [
+  { edadMin: 36, edadMax: 48, label: '36-48' },
+  { edadMin: 48, edadMax: 60, label: '48-60' },
+  { edadMin: 60, edadMax: 78, label: '60-78' },
+  { edadMin: 78, edadMax: 100, label: '78-100' },
+  { edadMin: 100, edadMax: null, label: 'Mayor 100' },
+];
+
+function makeSlug(modalidad: string, sexo: string, label: string) {
+  return `${modalidad}-${sexo}-${label}`
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+}
+
 async function main() {
   console.log('🌱 Iniciando seed de la base de datos profesional...');
 
-  // Limpiar datos existentes en el orden correcto
   await prisma.apuesta.deleteMany();
+  await prisma.poolApuestas.deleteMany();
   await prisma.participacion.deleteMany();
-  await prisma.caballo.deleteMany();
-  await prisma.categoriaEvento.deleteMany();
+  await prisma.competencia.deleteMany();
+  await prisma.competitionCategory.deleteMany();
   await prisma.feria.deleteMany();
+  await prisma.caballo.deleteMany();
   await prisma.usuario.deleteMany();
 
   console.log('🗑️  Base de datos limpiada');
 
-  // 1. Crear Usuarios
   const adminPassword = await bcrypt.hash('admin123', 12);
   const demoPassword = await bcrypt.hash('demo123', 12);
 
-  const admin = await prisma.usuario.create({
+  await prisma.usuario.create({
     data: {
       email: 'admin@pasobet.com',
       password: adminPassword,
@@ -30,7 +55,7 @@ async function main() {
     },
   });
 
-  const demo = await prisma.usuario.create({
+  await prisma.usuario.create({
     data: {
       email: 'demo@pasobet.com',
       password: demoPassword,
@@ -42,84 +67,104 @@ async function main() {
 
   console.log('👤 Usuarios creados');
 
-  // 2. Crear Caballos
-  const caballosData = [
-    { nombre: 'Relámpago Dorado', criadero: 'Hacienda El Roble' },
-    { nombre: 'Cielo Plateado', criadero: 'Finca Las Palmas' },
-    { nombre: 'Tornado del Sur', criadero: 'Rancho Viento Libre' },
-    { nombre: 'Espíritu Libre', criadero: 'Hacienda Santa Clara' },
-    { nombre: 'Don Supremo', criadero: 'Establo El Campeón' },
-    { nombre: 'Luna Plateada', criadero: 'Hacienda La Luna' },
-    { nombre: 'Fuego Vivo', criadero: 'Finca Fuego' },
-    { nombre: 'Rey de Copas', criadero: 'Establo Real' },
+  const horsesData = [
+    { nombre: 'Relámpago Dorado', criadero: 'Hacienda El Roble', sexo: 'Machos', edadMeses: 42 },
+    { nombre: 'Cielo Plateado', criadero: 'Finca Las Palmas', sexo: 'Hembras', edadMeses: 54 },
+    { nombre: 'Tornado del Sur', criadero: 'Rancho Viento Libre', sexo: 'Machos', edadMeses: 66 },
+    { nombre: 'Espíritu Libre', criadero: 'Hacienda Santa Clara', sexo: 'Hembras', edadMeses: 82 },
+    { nombre: 'Don Supremo', criadero: 'Establo El Campeón', sexo: 'Machos', edadMeses: 98 },
+    { nombre: 'Luna Plateada', criadero: 'Hacienda La Luna', sexo: 'Hembras', edadMeses: 108 },
+    { nombre: 'Fuego Vivo', criadero: 'Finca Fuego', sexo: 'Machos', edadMeses: 120 },
+    { nombre: 'Rey de Copas', criadero: 'Establo Real', sexo: 'Hembras', edadMeses: 74 },
   ];
 
   const caballos = await Promise.all(
-    caballosData.map((c) => prisma.caballo.create({ data: c }))
+    horsesData.map((caballo) => prisma.caballo.create({ data: caballo }))
   );
 
   console.log(`🐴 ${caballos.length} caballos creados`);
 
-  // 3. Crear Categorías base
-  const categoriasData = [
-    { nombre: 'Paso Fino Colombiano (P4)' },
-    { nombre: 'Trocha y Galope (P2)' },
-    { nombre: 'Trocha Pura (P3)' },
-    { nombre: 'Trote y Galope (P1)' },
-  ];
+  const categorias = [] as Array<{
+    modalidad: string;
+    sexo: string;
+    edadMin: number;
+    edadMax: number | null;
+    nombre: string;
+    slug: string;
+  }>;
 
-  // 4. Crear Feria
-  const feria = await prisma.feria.create({
-    data: {
-      nombre: 'Exposición Equina Grado A - Medellín 2026',
-      lugar: 'Plaza Mayor, Medellín',
-      fechaInicio: new Date('2026-08-15'),
-      fechaFin: new Date('2026-08-18'),
-      estado: 'activa',
-      categorias: {
-        create: categoriasData.map(cat => ({
-          nombre: cat.nombre,
-          estado: 'abierta'
-        }))
+  for (const modalidad of MODALIDADES) {
+    for (const sexo of SEXOS) {
+      for (const rango of RANGOS_EDAD) {
+        categorias.push({
+          modalidad,
+          sexo,
+          edadMin: rango.edadMin,
+          edadMax: rango.edadMax,
+          nombre: `${modalidad} ${sexo} ${rango.label}`,
+          slug: makeSlug(modalidad, sexo, rango.label),
+        });
       }
-    },
-    include: {
-      categorias: true
     }
-  });
-
-  // --- 5. Participaciones (Asignar caballos a categorías) ---
-  console.log('🔗 Asignando caballos a categorías...');
-  
-  for (const cat of feria.categorias) {
-    // Tomamos 4 caballos al azar para cada categoría
-    const randomHorses = await prisma.caballo.findMany({
-      take: 4,
-      skip: 0
-    });
-
-    for (const horse of randomHorses) {
-      await prisma.participacion.create({
-        data: {
-          categoriaId: cat.id,
-          caballoId: horse.id
-        }
-      });
-
-      // Crear Pool inicial para cada caballo
-      await prisma.poolApuestas.create({
-        data: {
-          categoriaId: cat.id,
-          caballoId: horse.id,
-          totalApostado: 0
-        }
-      });
-    }
-    console.log(`✅ Categoría ${cat.nombre} creada con ${randomHorses.length} participaciones`);
   }
 
+  await prisma.competitionCategory.createMany({ data: categorias });
+  console.log(`🏷️  ${categorias.length} categorías oficiales creadas`);
 
+  const feria = await prisma.feria.create({
+    data: {
+      nombre: 'Expoequina Medellín 2026',
+      lugar: 'Plaza Mayor, Medellín',
+      fechaInicio: new Date('2026-09-09'),
+      fechaFin: new Date('2026-09-12'),
+      estado: 'activa',
+    },
+  });
 
+  const activeCategorySlugs = [
+    'paso-fino-machos-36-48',
+    'paso-fino-hembas-60-78',
+    'trocha-y-galope-hembas-mayor-100',
+    'trote-y-galope-machos-78-100',
+  ];
+
+  const activeCategories = await prisma.competitionCategory.findMany({
+    where: { slug: { in: activeCategorySlugs } },
+  });
+
+  const competencias = await Promise.all(
+    activeCategories.map((categoria) => prisma.competencia.create({
+      data: {
+        feriaId: feria.id,
+        categoriaId: categoria.id,
+        estado: 'abierta',
+      },
+    }))
+  );
+
+  console.log(`🎯 ${competencias.length} competencias activas creadas para la feria demo`);
+
+  const horsesToAssign = caballos.slice(0, 4);
+
+  for (const competencia of competencias) {
+    for (const horse of horsesToAssign) {
+      await prisma.participacion.create({
+        data: {
+          competenciaId: competencia.id,
+          caballoId: horse.id,
+        },
+      });
+      await prisma.poolApuestas.create({
+        data: {
+          competenciaId: competencia.id,
+          caballoId: horse.id,
+          totalApostado: 0,
+        },
+      });
+    }
+  }
+
+  console.log('🔗 Participaciones y pools iniciales creados');
   console.log('✅ Seed completado exitosamente!');
 }
 

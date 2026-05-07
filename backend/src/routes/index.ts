@@ -4,7 +4,7 @@ import { getEvents, getEventById } from '../controllers/event.controller';
 import { placeBet, getMyBets } from '../controllers/bet.controller';
 import { getWallet, deposit, withdraw } from '../controllers/wallet.controller';
 import { getProfile, updateProfile, changePassword } from '../controllers/profile.controller';
-import { createEvent, updateEventStatus, createHorse, listHorses, assignHorse, settleEvent } from '../controllers/admin.controller';
+import { createEvent, updateEventStatus, createHorse, listHorses, assignHorse, settleEvent, listCompetitionCategories, listFeriaCompetitions, activateCategoryForFeria, listFerias } from '../controllers/admin.controller';
 import { authenticate, requireAdmin } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -33,6 +33,10 @@ router.post('/profile/change-password', authenticate, changePassword);
 // Admin
 router.post('/admin/events', authenticate, requireAdmin, createEvent);
 router.patch('/admin/events/:id/status', authenticate, requireAdmin, updateEventStatus);
+router.get('/admin/categories', authenticate, requireAdmin, listCompetitionCategories);
+router.get('/admin/ferias', authenticate, requireAdmin, listFerias);
+router.get('/admin/ferias/:id/competitions', authenticate, requireAdmin, listFeriaCompetitions);
+router.post('/admin/ferias/:id/categories', authenticate, requireAdmin, activateCategoryForFeria);
 router.post('/admin/horses', authenticate, requireAdmin, createHorse);
 router.get('/admin/horses', authenticate, requireAdmin, listHorses);
 router.post('/admin/events/assign-horse', authenticate, requireAdmin, assignHorse);
