@@ -62,27 +62,36 @@ export const Admin: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [feriasRes, catsRes, horsesRes, metaRes] = await Promise.all([
+      const [feriasRes, catsRes, horsesRes] = await Promise.all([
         api.get('/admin/ferias'),
         api.get('/admin/categories'),
         api.get('/admin/horses'),
-        api.get('/admin/metadata') // Nuevo endpoint o usar categorías para extraer
       ]);
 
-      setFerias(feriasRes.data.data || []);
-      setCategories(catsRes.data.data || []);
-      setHorses(horsesRes.data.data || []);
+      const feriasData = feriasRes.data.data || [];
+      const catsData = catsRes.data.data || [];
+      const horsesData = horsesRes.data.data || [];
+
+      setFerias(feriasData);
+      setCategories(catsData);
+      setHorses(horsesData);
       
-      // Extraer metadatos para cascada (En un sistema real esto vendría de endpoints dedicados)
-      const uniqueMods = Array.from(new Set(catsRes.data.data.map((c: any) => JSON.stringify(c.modalidad)))).map(s => JSON.parse(s));
-      const uniqueSexes = Array.from(new Set(catsRes.data.data.map((c: any) => JSON.stringify(c.sexo)))).map(s => JSON.parse(s));
-      const uniqueAges = Array.from(new Set(catsRes.data.data.map((c: any) => JSON.stringify(c.rangoEdad)))).map(s => JSON.parse(s));
+      // Extraer metadatos para cascada desde las categorías maestras
+      const uniqueMods = new Map();
+      const uniqueSexes = new Map();
+      const uniqueAges = new Map();
 
-      setModalities(uniqueMods);
-      setSexes(uniqueSexes);
-      setAgeRanges(uniqueAges);
+      catsData.forEach((c: any) => {
+        if (c.modalidad) uniqueMods.set(c.modalidadId, c.modalidad);
+        if (c.sexo) uniqueSexes.set(c.sexoId, c.sexo);
+        if (c.rangoEdad) uniqueAges.set(c.rangoEdadId, c.rangoEdad);
+      });
 
-      if (feriasRes.data.data?.length) setSelectedFeriaId(feriasRes.data.data[0].id);
+      setModalities(Array.from(uniqueMods.values()));
+      setSexes(Array.from(uniqueSexes.values()));
+      setAgeRanges(Array.from(uniqueAges.values()));
+
+      if (feriasData.length) setSelectedFeriaId(feriasData[0].id);
     } catch (err: any) {
       setError('Error cargando datos maestros');
     } finally {

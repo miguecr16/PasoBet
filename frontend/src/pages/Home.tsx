@@ -132,7 +132,7 @@ export const Home: React.FC = () => {
 
             {/* Modalidades Hierarchy (The Core Change) */}
             <div className="space-y-6">
-              {feria.modalidades.map((mod) => {
+              {(feria.modalidades || []).map((mod) => {
                 const config = MODALIDADES_CONFIG[mod.slug] || { label: mod.nombre, icon: Zap, color: 'bg-gray-500' };
                 const Icon = config.icon;
                 const isExpanded = expandedMods[`${feria.id}-${mod.id}`];
@@ -150,7 +150,7 @@ export const Home: React.FC = () => {
                         </div>
                         <div className="text-left">
                           <h3 className="text-xl font-black text-brand-green uppercase tracking-tight">{config.label}</h3>
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{mod.sexos.length} Categorías de Sexo</p>
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{(mod.sexos || []).length} Categorías de Sexo</p>
                         </div>
                       </div>
                       <div className={`w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
@@ -161,12 +161,12 @@ export const Home: React.FC = () => {
                     {isExpanded && (
                       <div className="p-6 pt-0 border-t border-gray-50 animate-slideDown">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
-                          {mod.sexos.map((sexo) => (
+                          {(mod.sexos || []).map((sexo: any) => (
                             <div key={sexo.id} className="relative">
                               {/* Level 2: Sex Header */}
                               <div className="flex items-center gap-3 mb-6">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${sexo.nombre.includes('Machos') ? 'bg-blue-50 text-blue-500' : 'bg-pink-50 text-pink-500'}`}>
-                                  <span className="font-black text-sm">{sexo.nombre.includes('Machos') ? '♂' : '♀'}</span>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${sexo.nombre?.includes('Machos') ? 'bg-blue-50 text-blue-500' : 'bg-pink-50 text-pink-500'}`}>
+                                  <span className="font-black text-sm">{sexo.nombre?.includes('Machos') ? '♂' : '♀'}</span>
                                 </div>
                                 <h4 className="text-sm font-black text-brand-green uppercase tracking-widest">{sexo.nombre}</h4>
                                 <div className="flex-1 h-[1px] bg-gray-100" />
@@ -174,7 +174,7 @@ export const Home: React.FC = () => {
 
                               {/* Level 3: Age Ranges / Competencies */}
                               <div className="space-y-3">
-                                {sexo.competencias.map((comp) => (
+                                {(sexo.competencias || []).map((comp: any) => (
                                   <div 
                                     key={comp.id}
                                     onClick={() => comp.status !== 'cerrada' && navigate(`/events/${comp.id}`)}
