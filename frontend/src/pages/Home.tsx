@@ -4,10 +4,10 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Spinner } from '../components/ui/Spinner';
 import { ModalityDetail } from '../components/ui/ModalityDetail';
-import type { ApiResponse, Feria, ModalityNode } from '../types';
+import type { ApiResponse, Feria } from '../types';
 import {
   MapPin, Calendar, Trophy, Users, Search,
-  SlidersHorizontal, Building2, ChevronDown, ChevronUp
+  SlidersHorizontal, Building2, ChevronDown
 } from 'lucide-react';
 
 // ─── Modality config ──────────────────────────────────────────────────────────
@@ -95,92 +95,14 @@ const FeriaHero: React.FC<{ feria: Feria; totalComps: number }> = ({ feria, tota
   );
 };
 
-// ─── Modality top card (grid of 5) ───────────────────────────────────────────
-interface ModCardProps {
-  mod: ModalityNode;
-  isActive: boolean;
-  onClick: () => void;
-}
-const ModCard: React.FC<ModCardProps> = ({ mod, isActive, onClick }) => {
-  const cfg = getModConfig(mod.slug, mod.nombre);
-  const totalComps = mod.sexos?.reduce((a, s) => a + (s.competencias?.length ?? 0), 0) ?? 0;
-  const totalParts = mod.sexos?.reduce((a, s) => a + (s.competencias?.reduce((b, c) => b + ((c as any).horseCount ?? 0), 0) ?? 0), 0) ?? 0;
-
-  return (
-    <motion.button
-      whileHover={{ y: -3 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      style={{
-        display: 'flex', flexDirection: 'column', gap: '.7rem',
-        padding: '1rem',
-        background: isActive ? `${cfg.color}18` : 'var(--bg-card)',
-        border: `1px solid ${isActive ? `${cfg.color}50` : 'rgba(255,255,255,0.07)'}`,
-        borderRadius: 'var(--r-xl)',
-        cursor: 'pointer',
-        textAlign: 'left',
-        transition: 'all .2s ease',
-        boxShadow: isActive ? `0 4px 20px ${cfg.color}25` : 'none',
-        outline: 'none',
-      }}
-    >
-      {/* Icon + name */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: 'var(--r-md)',
-          background: `${cfg.color}22`,
-          border: `1px solid ${cfg.color}44`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '1.2rem',
-        }}>
-          {cfg.icon}
-        </div>
-        <span className="badge-activa">ACTIVA</span>
-      </div>
-
-      <div>
-        <p style={{ fontFamily: 'var(--font-brand)', fontWeight: 800, fontSize: '.95rem', color: 'var(--text-primary)', lineHeight: 1.2 }}>
-          {cfg.label}
-        </p>
-      </div>
-
-      {/* Stats */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '.3rem' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '.3rem', color: 'var(--text-secondary)', fontSize: '.72rem' }}>
-          <Trophy size={11} color="var(--brand-gold)" /> {totalComps} competencias
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '.3rem', color: 'var(--text-secondary)', fontSize: '.72rem' }}>
-          <Users size={11} color="var(--text-muted)" /> {totalParts} participantes
-        </span>
-      </div>
-
-      {/* CTA */}
-      <div style={{
-        fontSize: '.72rem', fontWeight: 700,
-        color: isActive ? cfg.color : 'var(--text-muted)',
-        display: 'flex', alignItems: 'center', gap: '.3rem',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        paddingTop: '.6rem', marginTop: 'auto',
-      }}>
-        {isActive ? 'Cerrar categorías' : 'Ver categorías'} {isActive ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-      </div>
-    </motion.button>
-  );
-};
 
 // ─── Feria Section ────────────────────────────────────────────────────────────
 const FeriaSection: React.FC<{ feria: Feria; isFirst?: boolean }> = ({ feria, isFirst = false }) => {
-  const [activeModId, setActiveModId] = useState<string | null>(
-    isFirst && feria.modalidades?.[0]?.id ? feria.modalidades[0].id : null
-  );
   const [isExpanded, setIsExpanded] = useState(isFirst);
 
   const totalComps = (feria.modalidades ?? []).reduce(
     (a, m) => a + (m.sexos ?? []).reduce((b, s) => b + (s.competencias?.length ?? 0), 0), 0
   );
-
-  const activeMod = feria.modalidades?.find(m => m.id === activeModId) ?? null;
-  const activeModCfg = activeMod ? getModConfig(activeMod.slug, activeMod.nombre) : DEFAULT_MOD;
 
   return (
     <section style={{ 
@@ -243,47 +165,31 @@ const FeriaSection: React.FC<{ feria: Feria; isFirst?: boolean }> = ({ feria, is
               <span style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--brand-gold)', letterSpacing: '.04em' }}>🏆 Modalidades FEDEQUINAS</span>
             </div>
 
-            {/* Cards grid (all 5) */}
+            {/* Modalities Grid */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-              gap: '.75rem',
-              marginBottom: '1.25rem',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: '1.25rem',
             }}>
-              {(feria.modalidades ?? []).map(mod => (
-                <ModCard
-                  key={mod.id}
-                  mod={mod}
-                  isActive={mod.id === activeModId}
-                  onClick={() => setActiveModId(cur => cur === mod.id ? null : mod.id)}
-                />
-              ))}
-            </div>
-
-            {/* Active modality — detail expanded */}
-            <AnimatePresence mode="wait">
-              {activeMod && (
-                <motion.div
-                  key={activeMod.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25 }}
-                >
+              {(feria.modalidades ?? []).map(mod => {
+                const cfg = getModConfig(mod.slug, mod.nombre);
+                return (
                   <ModalityDetail
-                    modality={activeMod}
-                    accentColor={activeModCfg.color}
-                    icon={activeModCfg.icon}
+                    key={mod.id}
+                    modality={mod}
+                    accentColor={cfg.color}
+                    icon={cfg.icon}
                   />
-                </motion.div>
-              )}
-            </AnimatePresence>
+                );
+              })}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
     </section>
   );
 };
+
 
 // ─── Main Home ────────────────────────────────────────────────────────────────
 export const Home: React.FC = () => {

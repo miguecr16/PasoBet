@@ -14,7 +14,6 @@ export const getEvents = async (req: Request, res: Response, next: NextFunction)
       orderBy: { creadoEn: 'desc' },
       include: {
         competencias: {
-          where: { estado: { not: 'inactiva' } },
           include: {
             categoria: {
               include: {
