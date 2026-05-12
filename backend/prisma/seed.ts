@@ -98,14 +98,14 @@ async function main() {
       }
     });
 
+    const compsToCreate = allCats.map(cat => ({
+      feriaId: f.id,
+      categoriaId: cat.id,
+      estado: fData.estado === 'activa' ? 'abierta' : 'inactiva',
+    }));
+    await prisma.competencia.createMany({ data: compsToCreate });
+    
     if (fData.estado === 'activa') {
-      const compsToCreate = allCats.map(cat => ({
-        feriaId: f.id,
-        categoriaId: cat.id,
-        estado: 'abierta',
-      }));
-      await prisma.competencia.createMany({ data: compsToCreate });
-      
       const createdComps = await prisma.competencia.findMany({ where: { feriaId: f.id } });
       
       const partsData = [];
@@ -125,6 +125,7 @@ async function main() {
       await prisma.participacion.createMany({ data: partsData });
       await prisma.poolApuestas.createMany({ data: poolsData });
     }
+
   }
 
   console.log('✅ Seed optimizado completado!');
